@@ -1339,6 +1339,7 @@ void
 filter_stripperbytype(Client *c, const char *type)
 {
 	enum { maxlen = 2048 };
+	NULLGUARD(c);
 	NULLGUARD(type);
 	char script[maxlen];
 	snprintf(script, maxlen, "%s%s%s",
