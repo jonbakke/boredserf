@@ -425,6 +425,8 @@ setup(void)
 	if (!(dpy = XOpenDisplay(NULL)))
 		die("Can't open default display");
 
+	setenv("GDK_BACKEND", "x11", 0);
+
 	/* atoms */
 	atoms[AtomFind] = XInternAtom(dpy, "_SURF_FIND", False);
 	atoms[AtomGo] = XInternAtom(dpy, "_SURF_GO", False);
@@ -943,8 +945,9 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 	case SpellLanguages:
 		return; /* do nothing */
 	case StrictTLS:
-		webkit_web_context_set_tls_errors_policy(
-		    webkit_web_view_get_context(c->view), a->i ?
+		webkit_website_data_manager_set_tls_errors_policy(
+		    webkit_web_context_get_website_data_manager(
+		    webkit_web_view_get_context(c->view)), a->i ?
 		    WEBKIT_TLS_ERRORS_POLICY_FAIL :
 		    WEBKIT_TLS_ERRORS_POLICY_IGNORE);
 		break;
@@ -2111,7 +2114,8 @@ newview(Client *c, WebKitWebView *rv)
 		webkit_web_context_set_process_model(context,
 		    WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES);
 		/* TLS */
-		webkit_web_context_set_tls_errors_policy(context,
+		webkit_website_data_manager_set_tls_errors_policy(
+		    webkit_web_context_get_website_data_manager(context),
 		    curconfig[StrictTLS].val.i ? WEBKIT_TLS_ERRORS_POLICY_FAIL :
 		    WEBKIT_TLS_ERRORS_POLICY_IGNORE);
 		/* disk cache */
@@ -2374,10 +2378,6 @@ createwindow(Client *c)
 		w = gtk_plug_new(embed);
 	} else {
 		w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-		wmstr = g_path_get_basename(argv0);
-		gtk_window_set_wmclass(GTK_WINDOW(w), wmstr, "Surf");
-		g_free(wmstr);
 
 		wmstr = g_strdup_printf("%s[%"PRIu64"]", "Surf", c->pageid);
 		gtk_window_set_role(GTK_WINDOW(w), wmstr);

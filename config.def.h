@@ -210,6 +210,7 @@ static Key keys[] = {
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_y,      setkeytree, { .v = filterkeys } },
 	{ 0, 0, NULL, { .v = NULL} } /* last entry */
 };
+Key *defkeytree = keys;
 
 /* button definitions */
 /* target can be OnDoc, OnLink, OnImg, OnMedia, OnEdit, OnBar, OnSel, OnAny */
