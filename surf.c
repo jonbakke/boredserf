@@ -827,7 +827,6 @@ seturiparameters(Client *c, const char *uri, ParamName *params)
 
 	curconfig = uriconfig ? uriconfig : defconfig;
 
-
 	for (i = 0; (p = params[i]) != ParameterLast; ++i) {
 		switch(p) {
 		default: /* FALLTHROUGH */
@@ -1311,10 +1310,29 @@ filter_stripper(Client *c, const char *uri)
 {
 	FilterRule *rule = filter_get(uri);
 	NULLGUARD(rule);
+	if (0 == rule->p1.block)
+		return;
+	if (rule->p1.block & 1<<FilterCSS)
+		filter_stripperbytype(c, "style");
+	if (rule->p1.block & 1<<FilterFonts)
+		filter_stripperbytype(c, "font");
+	if (rule->p1.block & 1<<FilterImages) {
+		filter_stripperbytype(c, "img");
+		filter_stripperbytype(c, "picture");
+	}
 	if (rule->p1.block & 1<<FilterSVG)
 		filter_stripperbytype(c, "svg");
-	if (rule->p1.block & 1<<FilterScripts)
+	if (rule->p1.block & 1<<FilterMedia) {
+		filter_stripperbytype(c, "source");
+		filter_stripperbytype(c, "video");
+	}
+	if (rule->p1.block & 1<<FilterScripts) {
+		filter_stripperbytype(c, "applet");
+		filter_stripperbytype(c, "canvas");
+		filter_stripperbytype(c, "embed");
+		filter_stripperbytype(c, "object");
 		filter_stripperbytype(c, "script");
+	}
 }
 
 void

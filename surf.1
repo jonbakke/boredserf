@@ -304,7 +304,7 @@ Modifications will not persist automatically. To save rules. use `w' to write th
 .SS Caution
 The content blocker will make webpages behave unexpectedly. Blocking first-party documents will prevent the webpage from loading, which in turn prevents the browser from editing its rules, requiring manual editing of the configuration file. This is not intended as a set\-and\-forget ad blocker but as a tool for taking ownership of how websites use your computer.
 .TP
-Furthermore, WebKit only blocks network requests by their explicitly named content type. The content blocker does not audit the content itself; a request made for an image may return a script, and once retrieved that script will be educated despite any content-blocker configuration against it. The same also applies to inline content, commonly including scripts and SVG images.
+While the WebKit content blocker only filters requests and not inline content, the \fBsurf\fR blocker strips specified tags for blocked content. This behavior is not inherited, however. To block inline content, set the rule explicitly for each domain.
 .SS Usage
 .TP
 .B Ctrl\-Shift\-y
@@ -393,7 +393,7 @@ will block all requests other than for documents, on all webpages.
 will let you see all the beautiful graphics on surf.org, but not those loaded from third parties due to the prior rule. Note that the `3' is mandatory even if all rules are to be inherited.
 .TP
 .B puppy * 1IMSR 3IMSR
-will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names.
+will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names. Note, however, that the \fBsurf\fR interface only sets domain names for the browser-uri and will not present other rules for editing.
 .TP
 The \fBsurf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
 .SH ENVIRONMENT
