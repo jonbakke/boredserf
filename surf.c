@@ -235,6 +235,8 @@ static void filter_apply_cb(GObject *src, GAsyncResult *res, gpointer data);
 static void filter_freeall(void);
 static void filter_ruleinit(FilterRule *rule);
 static void filter_reset(FilterRule *rule);
+static void filter_stripper(Client *c, const char *uri);
+static void filter_stripperbytype(Client *c, const char *type);
 static void filter_rulecycle(FilterRule *rule, int modify, int p1, int p3);
 static void filter_texttobits(const char *desc, int len, FilterResources *r);
 static void filter_bitstotext(FilterRule *rule);
@@ -825,6 +827,7 @@ seturiparameters(Client *c, const char *uri, ParamName *params)
 
 	curconfig = uriconfig ? uriconfig : defconfig;
 
+
 	for (i = 0; (p = params[i]) != ParameterLast; ++i) {
 		switch(p) {
 		default: /* FALLTHROUGH */
@@ -1304,6 +1307,32 @@ filter_reset(FilterRule *r)
 }
 
 void
+filter_stripper(Client *c, const char *uri)
+{
+	FilterRule *rule = filter_get(uri);
+	NULLGUARD(rule);
+	if (rule->p1.block & 1<<FilterSVG)
+		filter_stripperbytype(c, "svg");
+	if (rule->p1.block & 1<<FilterScripts)
+		filter_stripperbytype(c, "script");
+}
+
+void
+filter_stripperbytype(Client *c, const char *type)
+{
+	enum { maxlen = 2048 };
+	NULLGUARD(type);
+	char script[maxlen];
+	snprintf(script, maxlen, "%s%s%s",
+		"var elements = document.getElementsByTagName(\"",
+		type,
+		"\"); for (let i = 0;i < elements.length;++i)"
+		"elements[i].innerHTML = '';"
+	);
+	evalscript(c, script);
+}
+
+void
 filter_setresource(FilterRule *rule, int modify, int p1, int p3)
 {
 	NULLGUARD(rule);
@@ -1456,7 +1485,10 @@ filter_isactive(FilterResources *party, int type)
 FilterRule*
 filter_get(const char *fordomain)
 {
+	enum { maxlen = 2048 };
 	FilterRule *rule = filterrules;
+	char shorter[maxlen];
+
 	NULLGUARD(fordomain, NULL);
 	if (NULL == filterrules) {
 		filterrules = malloc(sizeof(FilterRule));
@@ -1464,12 +1496,17 @@ filter_get(const char *fordomain)
 		filter_ruleinit(filterrules);
 	}
 
+	if (NULL != strchr(fordomain, '/'))
+		uritodomain(fordomain, shorter, maxlen);
+	else
+		strncpy(shorter, fordomain, maxlen);
+
 	while (NULL != rule) {
 		if (NULL == rule->iftopurl) {
-			filterrules->iftopurl = strdup(fordomain);
+			filterrules->iftopurl = strdup(shorter);
 			return rule;
 		}
-		if (0 == strcmp(fordomain, rule->iftopurl))
+		if (0 == strcmp(shorter, rule->iftopurl))
 			return rule;
 		if (NULL == rule->next)
 			break;
@@ -1479,7 +1516,7 @@ filter_get(const char *fordomain)
 	rule->next = malloc(sizeof(FilterRule));
 	NULLGUARD(rule->next, NULL);
 	filter_ruleinit(rule->next);
-	rule->next->iftopurl = strdup(fordomain);
+	rule->next->iftopurl = strdup(shorter);
 	rule->next->prev = rule;
 
 	return rule->next;
@@ -2485,6 +2522,7 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		    enablescrollbars ? "auto" : "hidden");
 		*/
 		runscript(c);
+		filter_stripper(c, uri);
 		break;
 	}
 	updatetitle(c);
