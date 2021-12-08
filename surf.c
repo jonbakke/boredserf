@@ -36,6 +36,10 @@
 
 #define LENGTH(x)               (sizeof(x) / sizeof(x[0]))
 #define CLEANMASK(mask)         (mask & (MODKEY|GDK_SHIFT_MASK))
+#define NULLGUARD(x, ...)       do {if (NULL == x) \
+	{fprintf(stderr, "Unexpected null at line %d.\n", __LINE__); \
+		return __VA_ARGS__;} \
+	} while(0)
 
 enum { AtomFind, AtomGo, AtomUri, AtomUTF8, AtomLast };
 
@@ -51,10 +55,32 @@ enum {
 };
 
 typedef enum {
+	FilterDocs = 0,
+	FilterCSS,
+	FilterFonts,
+	FilterImages,
+	FilterSVG,
+	FilterMedia,
+	FilterScripts,
+	FilterRaw,
+	FilterPopup,
+	FilterResourceTypes,
+	FilterSel1Party,
+	FilterSel3Party,
+	FilterDispRule,
+	FilterTglDomDisp,
+	FilterApply,
+	FilterWrite,
+	FilterResetRule,
+	FilterTogGlobal,
+} FilterCommand;
+
+typedef enum {
 	AccessMicrophone,
 	AccessWebcam,
 	CaretBrowsing,
 	Certificate,
+	ContentFilter,
 	CookiePolicies,
 	DiskCache,
 	DefaultCharset,
@@ -141,6 +167,29 @@ typedef struct {
 	regex_t re;
 } SiteSpecific;
 
+typedef struct {
+	char display[FilterResourceTypes];
+	char *jsonallow;
+	char *jsonblock;
+	unsigned int allow;
+	unsigned int block;
+	unsigned int hide;
+} FilterResources;
+
+typedef struct _FilterRule {
+	char *ifurl;
+	char *iftopurl;
+	char *activeuri;
+	char *jsonpreface;
+	FilterResources p1;
+	FilterResources p3;
+	unsigned int hidedomain;
+	unsigned int dirtydisplay;
+	unsigned int dirtyjson;
+	struct _FilterRule *prev;
+	struct _FilterRule *next;
+} FilterRule;
+
 /* Surf */
 static void die(const char *errstr, ...);
 static void usage(void);
@@ -177,6 +226,36 @@ static void spawn(Client *c, const Arg *a);
 static void msgext(Client *c, char type, const Arg *a);
 static void destroyclient(Client *c);
 static void cleanup(void);
+
+/* Content Filter */
+static void filter_read(void);
+static void filter_write(void);
+static void filter_apply(Client *c);
+static void filter_apply_cb(GObject *src, GAsyncResult *res, gpointer data);
+static void filter_freeall(void);
+static void filter_ruleinit(FilterRule *rule);
+static void filter_reset(FilterRule *rule);
+static void filter_rulecycle(FilterRule *rule, int modify, int p1, int p3);
+static void filter_texttobits(const char *desc, int len, FilterResources *r);
+static void filter_bitstotext(FilterRule *rule);
+static int  filter_isactive(FilterResources *party, int type);
+static void filter_setresourcenames(int types, char **names);
+static void filter_cycleresource(FilterResources *res, int type);
+static void filter_display(Client *c, FilterRule *rule);
+static void filter_updatejson(void);
+static void filter_ruletojson(FilterRule *rule);
+static FilterRule* filter_get(const char *fordomain);
+#define freeandnull(x) _ifnotnullfreeandnull((void*)&x)
+static void _ifnotnullfreeandnull(void **var);
+static void uritodomain(const char *uri, char *domain, int maxdomlen);
+static int lentodelim(const char *in, const char *delims, int delimsz);
+static int linelen(const char *in);
+static int fieldlen(const char *in);
+static int fieldcount(const char *in, int linelen);
+static char* nextfield(char *in);
+static char* getfield(char **in);
+static int stradd(char **base, int *remain, const char *addition);
+static void reallocstradd(char **base, int *maxlen, const char *addition);
 
 /* GTK/WebKit */
 static WebKitWebView *newview(Client *c, WebKitWebView *rv);
@@ -218,6 +297,9 @@ static void closeview(WebKitWebView *v, Client *c);
 static void destroywin(GtkWidget* w, Client *c);
 
 /* Hotkeys */
+static gboolean runkey(Key key, Client *c);
+static void resetkeytree(Client *c);
+static void setkeytree(Client *c, const Arg *a);
 static void pasteuri(GtkClipboard *clipboard, const char *text, gpointer d);
 static void reload(Client *c, const Arg *a);
 static void print(Client *c, const Arg *a);
@@ -232,6 +314,7 @@ static void toggle(Client *c, const Arg *a);
 static void togglefullscreen(Client *c, const Arg *a);
 static void togglecookiepolicy(Client *c, const Arg *a);
 static void toggleinspector(Client *c, const Arg *a);
+static void filtercmd(Client *c, const Arg *a);
 static void find(Client *c, const Arg *a);
 
 /* Buttons */
@@ -249,7 +332,14 @@ static int cookiepolicy;
 static Display *dpy;
 static Client *clients;
 static GdkDevice *gdkkb;
+static Key *curkeytree;
 static char *stylefile;
+static char *filterrulefile;
+static char *filterdir;
+static char *filterrulesjson;
+static FilterRule *filterrules;
+static WebKitUserContentFilter *filter;
+static WebKitUserContentFilterStore *filterstore;
 static const char *useragent;
 static Parameter *curconfig;
 static int modparams[ParameterLast];
@@ -315,7 +405,7 @@ die(const char *errstr, ...)
 void
 usage(void)
 {
-	die("usage: surf [-bBdDfFgGiIkKmMnNpPsStTvwxX]\n"
+	die("usage: surf [-bBdDfFgGiIkKmMnNpPsStTvwxXyY]\n"
 	    "[-a cookiepolicies ] [-c cookiefile] [-C stylefile] [-e xid]\n"
 	    "[-r scriptfile] [-u useragent] [-z zoomlevel] [uri]\n");
 }
@@ -350,6 +440,8 @@ setup(void)
 	/* dirs and files */
 	cookiefile = buildfile(cookiefile);
 	scriptfile = buildfile(scriptfile);
+	filterrulefile = buildfile(filterrulefile);
+	filterdir  = buildpath(filterdir);
 	certdir    = buildpath(certdir);
 	if (curconfig[Ephemeral].val.i)
 		cachedir = NULL;
@@ -369,7 +461,6 @@ setup(void)
 		g_io_channel_set_close_on_unref(gchanin, TRUE);
 		g_io_add_watch(gchanin, G_IO_IN, readsock, NULL);
 	}
-
 
 	for (i = 0; i < LENGTH(certs); ++i) {
 		if (!regcomp(&(certs[i].re), certs[i].regex, REG_EXTENDED)) {
@@ -592,6 +683,7 @@ loaduri(Client *c, const Arg *a)
 		updatetitle(c);
 	}
 
+	resetkeytree(c);
 	g_free(url);
 }
 
@@ -664,16 +756,17 @@ updatetitle(Client *c)
 void
 gettogglestats(Client *c)
 {
-	togglestats[0] = cookiepolicy_set(cookiepolicy_get());
-	togglestats[1] = curconfig[CaretBrowsing].val.i ?   'C' : 'c';
-	togglestats[2] = curconfig[Geolocation].val.i ?     'G' : 'g';
-	togglestats[3] = curconfig[DiskCache].val.i ?       'D' : 'd';
-	togglestats[4] = curconfig[LoadImages].val.i ?      'I' : 'i';
-	togglestats[5] = curconfig[JavaScript].val.i ?      'S' : 's';
-	togglestats[6] = curconfig[Style].val.i ?           'M' : 'm';
-	togglestats[7] = curconfig[FrameFlattening].val.i ? 'F' : 'f';
-	togglestats[8] = curconfig[Certificate].val.i ?     'X' : 'x';
-	togglestats[9] = curconfig[StrictTLS].val.i ?       'T' : 't';
+	togglestats[0]  = cookiepolicy_set(cookiepolicy_get());
+	togglestats[1]  = curconfig[CaretBrowsing].val.i ?   'C' : 'c';
+	togglestats[2]  = curconfig[Geolocation].val.i ?     'G' : 'g';
+	togglestats[3]  = curconfig[DiskCache].val.i ?       'D' : 'd';
+	togglestats[4]  = curconfig[LoadImages].val.i ?      'I' : 'i';
+	togglestats[5]  = curconfig[JavaScript].val.i ?      'S' : 's';
+	togglestats[6]  = curconfig[Style].val.i ?           'M' : 'm';
+	togglestats[7]  = curconfig[FrameFlattening].val.i ? 'F' : 'f';
+	togglestats[8]  = curconfig[Certificate].val.i ?     'X' : 'x';
+	togglestats[9]  = curconfig[StrictTLS].val.i ?       'T' : 't';
+	togglestats[10] = curconfig[ContentFilter].val.i ?   'Y' : 'y';
 }
 
 void
@@ -749,6 +842,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 {
 	GdkRGBA bgcolor = { 0 };
 	WebKitSettings *s = webkit_web_view_get_settings(c->view);
+	Arg passthru;
 
 	modparams[p] = curconfig[p].prio;
 
@@ -765,6 +859,10 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 		if (a->i)
 			setcert(c, geturi(c));
 		return; /* do not update */
+	case ContentFilter:
+		passthru.i = FilterTogGlobal;
+		filtercmd(c, &passthru);
+		return;
 	case CookiePolicies:
 		webkit_cookie_manager_set_accept_policy(
 		    webkit_web_context_get_cookie_manager(
@@ -951,6 +1049,863 @@ setstyle(Client *c, const char *file)
 }
 
 void
+filter_read(void)
+{
+	FilterRule *rule;
+	FILE *file;
+	char *buffer;
+	char *field;
+	char *desc;
+	int buflen;
+	int ret;
+	int pos;
+
+	if (NULL != filterrules)
+		filter_freeall();
+	if (NULL == filterrulefile)
+		return;
+	file = fopen(filterrulefile, "r");
+	NULLGUARD(file);
+
+	fseek(file, 0, SEEK_END);
+	buflen = ftell(file);
+	buffer = malloc(buflen + 1);
+	NULLGUARD(buffer);
+	buffer[buflen] = 0;
+	rewind(file);
+
+	ret = fread(buffer, 1, buflen, file);
+	fclose(file);
+	if (ret != buflen) {
+		fprintf(stderr, "Incomplete read of rules file.\n");
+		free(buffer);
+		return;
+	}
+
+	rule = filterrules = malloc(sizeof(FilterRule));
+	NULLGUARD(rule);
+	filter_ruleinit(rule);
+	field = buffer;
+	while (field) {
+		switch (fieldcount(field, linelen(field))) {
+		case 4: /* fall through */
+			rule->ifurl = getfield(&field);
+		case 3:
+			rule->iftopurl = getfield(&field);
+			desc = getfield(&field);
+			filter_texttobits(desc, strlen(desc), &rule->p1);
+			free(desc);
+			desc = getfield(&field);
+			filter_texttobits(desc, strlen(desc), &rule->p3);
+			free(desc);
+			break;
+		case 0:
+			field = NULL;
+			break;
+		default:
+			break;
+		}
+		rule->next = malloc(sizeof(FilterRule));
+		NULLGUARD(rule->next);
+		filter_ruleinit(rule->next);
+		rule->next->prev = rule;
+		rule = rule->next;
+	}
+
+	rule = rule->prev;
+	freeandnull(rule->next);
+	free(buffer);
+}
+
+void
+filter_write(void)
+{
+	enum { linemax = 2048 };
+	FilterRule *rule = filterrules;
+	FILE *output;
+	char *filterrulefiletemp;
+	char *ptr;
+	char line[linemax];
+	int hidep1;
+	int hidep3;
+
+	if (NULL == filterrules)
+		return;
+
+	NULLGUARD(filterrulefile);
+	filterrulefiletemp = malloc(strlen(filterrulefile) + 4);
+	NULLGUARD(filterrulefiletemp);
+	sprintf(filterrulefiletemp, "%s%s", filterrulefile, "new");
+	output = fopen(filterrulefiletemp, "w+");
+	NULLGUARD(output);
+
+	while (NULL != rule) {
+		if (
+			0 == rule->p1.allow &&
+			0 == rule->p1.block &&
+			0 == rule->p3.allow &&
+			0 == rule->p3.block
+		) {
+			rule = rule->next;
+			continue;
+		}
+
+		hidep1 = rule->p1.hide;
+		hidep3 = rule->p3.hide;
+		if (hidep1 || hidep3) {
+			rule->p1.hide = 0;
+			rule->p3.hide = 0;
+		}
+		rule->dirtydisplay = 1;
+		filter_bitstotext(rule);
+
+		ptr = rule->ifurl;
+		if (NULL != ptr) {
+			fwrite(ptr, 1, strlen(ptr), output);
+			fwrite(" ", 1, 1, output);
+		}
+
+		ptr = rule->iftopurl;
+		if (NULL != ptr)
+			fwrite(ptr, 1, strlen(ptr), output);
+		else
+			fwrite("*", 1, 1, output);
+		fwrite(" ", 1, 1, output);
+
+		fwrite("1", 1, 1, output);
+		ptr = rule->p1.display;
+		if (NULL != ptr) {
+			fwrite(ptr, 1, strlen(ptr), output);
+			fwrite(" ", 1, 1, output);
+		}
+
+		fwrite("3", 1, 1, output);
+		ptr = rule->p1.display;
+		if (NULL != ptr) {
+			fwrite(ptr, 1, strlen(ptr), output);
+		}
+		fwrite("\n", 1, 1, output);
+
+		if (hidep1 || hidep3) {
+			rule->p1.hide = hidep1;
+			rule->p3.hide = hidep3;
+			rule->dirtydisplay = 1;
+		}
+		rule = rule->next;
+	}
+
+	fclose(output);
+	rename(filterrulefiletemp, filterrulefile);
+	free(filterrulefiletemp);
+}
+
+void
+filter_apply(Client *c)
+{
+	static const gchar *filterid = "surf_contentfilter";
+	GBytes *json;
+	gsize jsonsz;
+
+	if (NULL == filterrulefile || NULL == filterrules)
+		return;
+
+	NULLGUARD(c);
+
+	if (!curconfig[ContentFilter].val.i)
+		return;
+	filter_updatejson();
+	if (NULL == filterrulesjson)
+		return;
+
+	jsonsz = strlen(filterrulesjson);
+	json = g_bytes_new(filterrulesjson, jsonsz);
+
+	filterstore = webkit_user_content_filter_store_new(filterdir);
+	webkit_user_content_filter_store_save(
+		filterstore,
+		filterid,
+		json,
+		NULL,
+		filter_apply_cb,
+		c
+	);
+}
+
+void
+filter_apply_cb(GObject *src_obj, GAsyncResult *res, gpointer data)
+{
+	Client *c = data;
+	Arg a = { .i = 1 };
+	GError *err = NULL;
+	filter = webkit_user_content_filter_store_save_finish(
+		filterstore,
+		res,
+		&err
+	);
+	if (err) {
+		fprintf(stderr, err->message);
+		return;
+	}
+	webkit_user_content_manager_add_filter(
+		webkit_web_view_get_user_content_manager(c->view),
+		filter);
+	reload(c, &a);
+}
+
+void
+filter_freeall(void)
+{
+	FilterRule *rule;
+	while (NULL != filterrules) {
+		rule = filterrules;
+		filter_reset(rule);
+		freeandnull(rule->iftopurl);
+		freeandnull(rule->activeuri);
+		filterrules = rule->next;
+		free(rule);
+	}
+}
+
+void
+filter_ruleinit(FilterRule *r)
+{
+	NULLGUARD(r);
+	r->ifurl = r->iftopurl = r->activeuri = r->jsonpreface = NULL;
+	r->p1.jsonallow = r->p1.jsonblock = NULL;
+	r->p1.display[0] = 0;
+	r->p1.allow = r->p1.block = r->p1.hide = 0;
+	r->p3.jsonallow = r->p3.jsonblock = NULL;
+	r->p3.display[0] = 0;
+	r->p3.allow = r->p3.block = r->p3.hide = 0;
+	r->hidedomain = r->dirtydisplay = r->dirtyjson = 0;
+	r->prev = r->next = NULL;
+}
+
+void
+filter_reset(FilterRule *r)
+{
+	NULLGUARD(r);
+	/* retain iftopurl, activeuri, and list links */
+	freeandnull(r->ifurl);
+	freeandnull(r->activeuri);
+	freeandnull(r->jsonpreface);
+	freeandnull(r->p1.jsonallow);
+	freeandnull(r->p1.jsonblock);
+	freeandnull(r->p3.jsonallow);
+	freeandnull(r->p3.jsonblock);
+	r->p1.display[0] = r->p3.display[0] = 0;
+	r->p1.allow = r->p1.block = 0;
+	r->p3.allow = r->p3.block = 0;
+	r->p1.hide = r->p3.hide = r->hidedomain = 0;
+	r->dirtydisplay = r->dirtyjson = 1;
+}
+
+void
+filter_setresource(FilterRule *rule, int modify, int p1, int p3)
+{
+	NULLGUARD(rule);
+#ifdef __WORDSIZE
+	if (modify >= __WORDSIZE) {
+		fprintf(stderr, "modify bits exceed word size; "
+			"check the enum FilterCommand value passed to "
+			"filtercmd()\n");
+		return;
+	}
+#endif /* __WORDSIZE */
+
+	if (p1 && p3) {
+		/* set both to new p1 value */
+		filter_cycleresource(&rule->p1, modify);
+		while (
+			((rule->p1.allow & (1 << modify)) !=
+				(rule->p3.allow & (1 << modify))) ||
+			((rule->p1.block & (1 << modify)) !=
+				(rule->p3.block & (1 << modify)))
+		) {
+			filter_cycleresource(&rule->p3, modify);
+		}
+	} else if (p1) {
+		filter_cycleresource(&rule->p1, modify);
+	} else if (p3) {
+		filter_cycleresource(&rule->p3, modify);
+	}
+	rule->dirtydisplay = rule->dirtyjson = 1;
+}
+
+void
+filter_cycleresource(FilterResources *res, int type) {
+	NULLGUARD(res);
+	/* allow -> inherit; block -> allow; inherit -> block */
+	if (res->allow & (1 << type)) {
+		res->allow &= ~(1 << type);
+		res->block &= ~(1 << type);
+	} else if (res->block & (1 << type)) {
+		res->allow |=   1 << type;
+		res->block &= ~(1 << type);
+	} else {
+		res->allow &= ~(1 << type);
+		res->block |=   1 << type;
+	}
+};
+
+void
+filter_texttobits(const char *desc, int desclen, FilterResources *res)
+{
+	int pos = 0;
+	int type;
+	NULLGUARD(desc);
+	NULLGUARD(res);
+	res->block = res->allow = 0;
+	if ('1' == desc[0] || '3' == desc[0])
+		++pos;
+	while (pos < desclen && desc[pos]) {
+		switch (desc[pos++]) {
+		case 'd': res->block |= 1 << FilterDocs; break;
+		case 'D': res->allow |= 1 << FilterDocs; break;
+		case 'c': res->block |= 1 << FilterCSS; break;
+		case 'C': res->allow |= 1 << FilterCSS; break;
+		case 'f': res->block |= 1 << FilterFonts; break;
+		case 'F': res->allow |= 1 << FilterFonts; break;
+		case 'i': res->block |= 1 << FilterImages; break;
+		case 'I': res->allow |= 1 << FilterImages; break;
+		case 'v': res->block |= 1 << FilterSVG; break;
+		case 'V': res->allow |= 1 << FilterSVG; break;
+		case 'm': res->block |= 1 << FilterMedia; break;
+		case 'M': res->allow |= 1 << FilterMedia; break;
+		case 's': res->block |= 1 << FilterScripts; break;
+		case 'S': res->allow |= 1 << FilterScripts; break;
+		case 'r': res->block |= 1 << FilterRaw; break;
+		case 'R': res->allow |= 1 << FilterRaw; break;
+		case 'p': res->block |= 1 << FilterPopup; break;
+		case 'P': res->allow |= 1 << FilterPopup; break;
+		case '1': case '3': break;
+		default: return;
+		}
+	}
+}
+
+void
+filter_bitstotext(FilterRule *rule)
+{
+	const char allowed[FilterResourceTypes] = "DCFIVMSRP";
+	const char blocked[FilterResourceTypes] = "dcfivmsrp";
+	int maxlen;
+	int pos1, pos3;
+	int i;
+
+	NULLGUARD(rule);
+	if (!rule->dirtydisplay)
+		return;
+
+	pos1 = pos3 = 0;
+	for (i = 0; i < FilterResourceTypes; ++i) {
+		switch (filter_isactive(&rule->p1, i)) {
+		case 1:
+			rule->p1.display[pos1++] = allowed[i];
+			break;
+		case 2:
+			rule->p1.display[pos1++] = blocked[i];
+			break;
+		default:
+			break;
+		}
+
+		switch (filter_isactive(&rule->p3, i)) {
+		case 1:
+			rule->p3.display[pos3++] = allowed[i];
+			break;
+		case 2:
+			rule->p3.display[pos3++] = blocked[i];
+			break;
+		default:
+			break;
+		}
+	}
+
+	rule->p1.display[pos1] = 0;
+	rule->p3.display[pos3] = 0;
+	rule->dirtydisplay = 0;
+}
+
+/* returns 0 for ignore, 1 for allow, 2 for block */
+int
+filter_isactive(FilterResources *party, int type)
+{
+	NULLGUARD(party, 0);
+	if (FilterResourceTypes <= type || 0 > type) {
+		fprintf(stderr, "Unrecognized resource type.\n");
+		return 0;
+	}
+	if ((party->allow & 1<<type) && (party->block & 1<<type)) {
+		fprintf(stderr, "Cannot allow and block. Ignoring rule.\n");
+		party->allow = party->block = 0;
+		return 0;
+	}
+	if (! (party->allow & 1<<type) && ! (party->block & 1<<type))
+		return 0;
+	if (party->allow & 1<<type)
+		return 1;
+	if (party->block & 1<<type)
+		return 2;
+	return 0;
+}
+
+FilterRule*
+filter_get(const char *fordomain)
+{
+	FilterRule *rule = filterrules;
+	NULLGUARD(fordomain, NULL);
+	if (NULL == filterrules) {
+		filterrules = malloc(sizeof(FilterRule));
+		NULLGUARD(filterrules, NULL);
+		filter_ruleinit(filterrules);
+	}
+
+	while (NULL != rule) {
+		if (NULL == rule->iftopurl) {
+			filterrules->iftopurl = strdup(fordomain);
+			return rule;
+		}
+		if (0 == strcmp(fordomain, rule->iftopurl))
+			return rule;
+		if (NULL == rule->next)
+			break;
+		rule = rule->next;
+	}
+
+	rule->next = malloc(sizeof(FilterRule));
+	NULLGUARD(rule->next, NULL);
+	filter_ruleinit(rule->next);
+	rule->next->iftopurl = strdup(fordomain);
+	rule->next->prev = rule;
+
+	return rule->next;
+}
+
+void
+filter_display(Client *c, FilterRule *rule)
+{
+	enum { maxlen = 256 };
+	static char display[maxlen];
+	int len = maxlen;
+	NULLGUARD(c);
+	NULLGUARD(rule);
+	if (rule->dirtydisplay)
+		filter_bitstotext(rule);
+
+	display[0] = 0;
+
+	if (NULL != rule->ifurl) {
+		len -= strlen(rule->ifurl);
+		if (0 >= len)
+			return;
+		strcat(display, rule->ifurl);
+		strcat(display, " ");
+	}
+
+	if (NULL != rule->iftopurl) {
+		len -= strlen(rule->iftopurl);
+		if (0 >= len)
+			return;
+		strcat(display, rule->iftopurl);
+	} else {
+		--len;
+		if (0 >= len)
+			return;
+		strcat(display, "*");
+	}
+
+	if (!rule->p1.hide) {
+		len -= strlen(rule->p1.display) + 1;
+		if (0 >= len)
+			return;
+		strcat(display, " ");
+		strcat(display, "1");
+		strcat(display, rule->p1.display);
+	}
+
+	if (!rule->p3.hide) {
+		len -= strlen(rule->p3.display) + 1;
+		if (0 >= len)
+			return;
+		strcat(display, " ");
+		strcat(display, "3");
+		strcat(display, rule->p3.display);
+	}
+
+	c->overtitle = display;
+	updatetitle(c);
+}
+
+void
+filter_updatejson(void)
+{
+	FilterRule *rule = filterrules;
+	const char actblock[] = "]},\n \"action\":{\"type\":"
+		"\"block\"}}";
+	const char actallow[] = "]},\n \"action\":{\"type\":"
+		"\"ignore-previous-rules\"}}";
+	char *j;
+	int len = 2048;
+	int first = 1;
+
+	j = malloc(len);
+	NULLGUARD(j);
+	j[0] = 0;
+
+	reallocstradd(&j, &len, "[");
+	while (NULL != rule) {
+		filter_ruletojson(rule);
+		if (NULL == rule->jsonpreface) {
+			rule = rule->next;
+			continue;
+		}
+		if (NULL != rule->p1.jsonallow) {
+			if (!first)
+				reallocstradd(&j, &len, ",");
+			else
+				first = 0;
+			reallocstradd(&j, &len, rule->jsonpreface);
+			reallocstradd(&j, &len, rule->p1.jsonallow);
+			reallocstradd(&j, &len, actallow);
+		}
+		if (NULL != rule->p1.jsonblock) {
+			if (!first)
+				reallocstradd(&j, &len, ",");
+			else
+				first= 0;
+			reallocstradd(&j, &len, rule->jsonpreface);
+			reallocstradd(&j, &len, rule->p1.jsonblock);
+			reallocstradd(&j, &len, actblock);
+		}
+		if (NULL != rule->p3.jsonallow) {
+			if (!first)
+				reallocstradd(&j, &len, ",");
+			else
+				first = 0;
+			reallocstradd(&j, &len, rule->jsonpreface);
+			reallocstradd(&j, &len, rule->p3.jsonallow);
+			reallocstradd(&j, &len, actallow);
+		}
+		if (NULL != rule->p3.jsonblock) {
+			if (!first)
+				reallocstradd(&j, &len, ",");
+			else
+				first = 0;
+			reallocstradd(&j, &len, rule->jsonpreface);
+			reallocstradd(&j, &len, rule->p3.jsonblock);
+			reallocstradd(&j, &len, actblock);
+		}
+
+		rule = rule->next;
+	}
+
+	if (1 == strlen(j))
+		freeandnull(j);
+	else
+		reallocstradd(&j, &len, "]");
+
+	if (NULL != j) {
+		freeandnull(filterrulesjson);
+		filterrulesjson = j;
+	}
+}
+
+void
+filter_ruletojson(FilterRule *rule)
+{
+	enum { max = 4096 };
+	char preface[max];
+	char *p;
+	int c;
+
+	NULLGUARD(rule);
+	rule->dirtyjson = 0;
+	if (
+		0 == rule->p1.allow &&
+		0 == rule->p1.block &&
+		0 == rule->p3.allow &&
+		0 == rule->p3.block
+	) {
+		freeandnull(rule->jsonpreface);
+		freeandnull(rule->p1.jsonallow);
+		freeandnull(rule->p1.jsonblock);
+		freeandnull(rule->p3.jsonallow);
+		freeandnull(rule->p3.jsonblock);
+		return;
+	}
+
+	if (NULL == rule->jsonpreface) {
+		p = preface;
+		c = max;
+		stradd(&p, &c, "{\n \"trigger\":{\"url-filter\":\"");
+		if (NULL != rule->ifurl)
+			stradd(&p, &c, rule->ifurl);
+		else
+			stradd(&p, &c,".*");
+		stradd(&p, &c, "\"");
+		if (
+			NULL != rule->iftopurl &&
+			'*' != rule->iftopurl[0] &&
+			0 != rule->iftopurl[1]
+		) {
+			stradd(&p, &c, ",\"if-top-url\":[\"");
+			stradd(&p, &c, rule->iftopurl);
+			stradd(&p, &c, "\"]");
+		}
+		stradd(&p, &c, ",\"resource-type\":[");
+		p[0] = 0;
+		rule->jsonpreface = strdup(preface);
+	}
+
+	filter_setresourcenames(rule->p1.allow, &rule->p1.jsonallow);
+	filter_setresourcenames(rule->p1.block, &rule->p1.jsonblock);
+	filter_setresourcenames(rule->p3.allow, &rule->p3.jsonallow);
+	filter_setresourcenames(rule->p3.block, &rule->p3.jsonblock);
+}
+
+void
+filter_setresourcenames(int types, char **names)
+{
+	enum { max = 256 };
+	const char resource[FilterResourceTypes][16] = {
+		"\"document\"",
+		"\"style-sheet\"",
+		"\"font\"",
+		"\"image\"",
+		"\"svg-document\"",
+		"\"media\"",
+		"\"script\"",
+		"\"raw\"",
+		"\"popup\""
+	};
+	char text[max];
+	char *p = text;
+	int c = max;
+	int first = 1;
+	int i;
+
+	NULLGUARD(names);
+	if (NULL != *names) {
+		free(*names);
+		*names = NULL;
+	}
+
+	if (!types)
+		return;
+
+	for (i = 0; i < FilterResourceTypes; ++i) {
+		if (! (types & 1<<i))
+			continue;
+		if (!first)
+			stradd(&p, &c, ",");
+		else
+			first = 0;
+		stradd(&p, &c, resource[i]);
+	}
+	p[0] = 0;
+
+	*names = strdup(text);
+}
+
+void
+_ifnotnullfreeandnull(void **ptr)
+{
+	NULLGUARD(ptr);
+	if (NULL == *ptr)
+		return;
+	free(*ptr);
+	*ptr = NULL;
+}
+
+void
+uritodomain(const char *uri, char *domain, int maxdomlen)
+{
+	int offset = 0;
+	int len = 0;
+	int start = 0;
+	int end = 0;
+
+	NULLGUARD(domain);
+	if (NULL == uri) {
+		strncpy(domain, "*", maxdomlen);
+		return;
+	}
+	len = strlen(uri);
+	if (0 > len) {
+		fprintf(stderr, "%s could not get URI length.\n", __func__);
+		return;
+	}
+
+	while (offset < len && ':' != uri[offset++]);
+	while (offset < len && '/' == uri[offset++]);
+	if (offset >= len) {
+		fprintf(stderr, "%s found malformed URI.\n", __func__);
+		return;
+	}
+
+	start = offset - 1;
+	end = strchr(uri + start, '/') - uri;
+	if (0 >= end || end <= start) {
+		fprintf(stderr, "%s failed to get substring.\n", __func__);
+		return;
+	}
+
+	len = end - start;
+	if (len <= maxdomlen) {
+		strncpy(domain, uri + start, len);
+		if (len < maxdomlen)
+			domain[len] = 0;
+	} else {
+		fprintf(stderr, "Domain exceeds max length for: %s\n", uri);
+	}
+
+	return;
+}
+
+int
+lentodelim(const char *in, const char *delims, int delimsz)
+{
+	char testnull = 0;
+	const char *test;
+	int count = 0;
+	int testsz;
+	int i;
+
+	NULLGUARD(in, -1);
+	if (NULL == delims || 0 == delimsz) {
+		test = &testnull;
+		testsz = 1;
+	} else {
+		test = delims;
+		testsz = delimsz;
+	}
+	if (0 >= testsz)
+		return 0;
+
+	while (1) {
+		for (i = 0; i < testsz; ++i) {
+			if (in[count] == test[i])
+				return count;
+		}
+		++count;
+	}
+	return count;
+}
+
+int
+linelen(const char *in)
+{
+	const char delims[] = "\n";
+	return lentodelim(in, delims, 2);
+}
+
+int
+fieldlen(const char *in)
+{
+	const char delims[] = " \t\n";
+	return lentodelim(in, delims, 4);
+}
+
+int
+fieldcount(const char *in, int linelen)
+{
+	int isblank = 1;
+	int fields = 0;
+	int pos = 0;
+	int i;
+
+	NULLGUARD(in, -1);
+	while (pos < linelen) {
+		switch (in[pos++]) {
+		case 0:    /* fall through */
+		case '\n':
+			return fields;
+		case ' ':  /* fall through */
+		case '\t':
+			isblank = 1;
+			continue;
+		default:
+			if (!isblank)
+				continue;
+			isblank = 0;
+			++fields;
+			continue;
+		}
+	}
+	return fields;
+}
+
+char*
+nextfield(char *in)
+{
+	int pos = 0;
+	int isblank = 0;
+	if (NULL == in)
+		return NULL;
+	while (1) {
+		switch (in[pos]) {
+		case 0: /* fall through */
+			return NULL;
+		case ' ':  /* fall through */
+		case '\n': /* fall through */
+		case '\t':
+			isblank = 1;
+			break;
+		default:
+			if (isblank)
+				return in + pos;
+			break;
+		}
+		++pos;
+	}
+	return NULL;
+}
+
+char*
+getfield(char **in)
+{
+	char *result;
+	NULLGUARD(in, NULL);
+	NULLGUARD(*in, NULL);
+	result = strndup(*in, fieldlen(*in));
+	*in = nextfield(*in);
+	return result;
+}
+
+int
+stradd(char **base, int *remain, const char *addition)
+{
+	/* assumes addition is null-terminated */
+	int pos = 0;
+	NULLGUARD(base, 0);
+	NULLGUARD(*base, 0);
+	NULLGUARD(remain, 0);
+	NULLGUARD(addition, 0);
+	if (strlen(addition) > *remain)
+		return -1;
+	while (addition[pos]) {
+		(*base)[pos] = addition[pos];
+		++pos;
+	}
+	*base += pos;
+	*remain -= pos;
+	return pos;
+}
+
+void
+reallocstradd(char **base, int *maxlen, const char *addition)
+{
+	/* assumes *base and addition are null-terminated */
+	enum { increment = 2048 };
+	while (strlen(*base) + strlen(addition) >= *maxlen) {
+		*maxlen += increment;
+		*base = realloc(*base, *maxlen);
+	}
+	strcat(*base, addition);
+}
+
+void
 runscript(Client *c)
 {
 	gchar *script;
@@ -1033,6 +1988,7 @@ newwindow(Client *c, const Arg *a, int noembed)
 	if (showxid)
 		cmd[i++] = "-w";
 	cmd[i++] = curconfig[Certificate].val.i ? "-X" : "-x" ;
+	cmd[i++] = curconfig[ContentFilter].val.i ? "-Y" : "-y" ;
 	/* do not keep zoom level */
 	cmd[i++] = "--";
 	if ((uri = a->v))
@@ -1336,6 +2292,7 @@ gboolean
 winevent(GtkWidget *w, GdkEvent *e, Client *c)
 {
 	int i;
+	Key key;
 
 	switch (e->type) {
 	case GDK_ENTER_NOTIFY:
@@ -1343,18 +2300,9 @@ winevent(GtkWidget *w, GdkEvent *e, Client *c)
 		updatetitle(c);
 		break;
 	case GDK_KEY_PRESS:
-		if (!curconfig[KioskMode].val.i) {
-			for (i = 0; i < LENGTH(keys); ++i) {
-				if (gdk_keyval_to_lower(e->key.keyval) ==
-				    keys[i].keyval &&
-				    CLEANMASK(e->key.state) == keys[i].mod &&
-				    keys[i].func) {
-					updatewinid(c);
-					keys[i].func(c, &(keys[i].arg));
-					return TRUE;
-				}
-			}
-		}
+		key.mod = CLEANMASK(e->key.state);
+		key.keyval = gdk_keyval_to_lower(e->key.keyval);
+		return runkey(key,c);
 	case GDK_LEAVE_NOTIFY:
 		c->overtitle = NULL;
 		updatetitle(c);
@@ -1777,6 +2725,62 @@ destroywin(GtkWidget* w, Client *c)
 		gtk_main_quit();
 }
 
+gboolean
+runkey(Key key, Client *c)
+{
+	int i;
+
+	/* ignore standard modifiers as literal key presses */
+	if (GDK_KEY_Shift_L <= key.keyval && GDK_KEY_Hyper_R >= key.keyval)
+		return FALSE;
+	if (curconfig[KioskMode].val.i)
+		return FALSE;
+	if (curkeytree == NULL)
+		resetkeytree(c);
+	for (i = 0; curkeytree[i].func; ++i) {
+		if (key.keyval != curkeytree[i].keyval ||
+		    key.mod != curkeytree[i].mod
+		) {
+			continue;
+		}
+		updatewinid(c);
+		curkeytree[i].func(c, &(curkeytree[i].arg));
+		return TRUE;
+	}
+	if (key.keyval && curkeytree != defkeytree) {
+		resetkeytree(c);
+		return runkey(key, c);
+	}
+	return FALSE;
+}
+
+void
+resetkeytree(Client *c)
+{
+	/* keytree cleanup */
+	if (curkeytree == filterkeys) {
+		c->overtitle = NULL;
+		updatetitle(c);
+	}
+
+	curkeytree = defkeytree;
+}
+
+void
+setkeytree(Client *c, const Arg *a)
+{
+	const Arg filterkeysarg = { .i = FilterDispRule };
+
+	if (a->v && curkeytree != (Key*)a->v) {
+		resetkeytree(c);
+		curkeytree = (Key*)a->v;
+	}
+
+	/* keytree initialization */
+	if (curkeytree == filterkeys)
+		filtercmd(c, &filterkeysarg);
+}
+
 void
 pasteuri(GtkClipboard *clipboard, const char *text, gpointer d)
 {
@@ -1934,6 +2938,103 @@ toggleinspector(Client *c, const Arg *a)
 		webkit_web_inspector_close(c->inspector);
 	else if (curconfig[Inspector].val.i)
 		webkit_web_inspector_show(c->inspector);
+}
+
+void
+filtercmd(Client *c, const Arg *a)
+{
+	enum { maxdomlen = 1024 };
+	static char olddomain[maxdomlen] = { 0 };
+	char curdomain[maxdomlen] = { 0 };
+	static FilterRule *rule;
+	static int editing1p = 1;
+	static int editing3p = 1;
+	int *thisparty = NULL;
+	int *thatparty = NULL;
+	Arg passthru = { .i = 1 };
+
+	NULLGUARD(c);
+	NULLGUARD(filterrules);
+
+	uritodomain(webkit_web_view_get_uri(c->view), curdomain, maxdomlen);
+	if (0 == olddomain[0]) {
+		strcpy(olddomain, curdomain);
+		rule = filter_get(curdomain);
+	} else if (0 != strcmp(curdomain, olddomain)) {
+		strncpy(olddomain, curdomain, maxdomlen);
+		rule = filter_get(curdomain);
+	}
+	NULLGUARD(rule);
+
+	switch (a->i) {
+	case FilterDocs:    /* fall through */
+		/* do not disable 1p documents */
+		//if (editing1p)
+		//	break;
+	case FilterCSS:     /* fall through */
+	case FilterFonts:   /* fall through */
+	case FilterImages:  /* fall through */
+	case FilterSVG:     /* fall through */
+	case FilterMedia:   /* fall through */
+	case FilterScripts: /* fall through */
+	case FilterRaw:     /* fall through */
+	case FilterPopup:
+		filter_setresource(rule, a->i, editing1p, editing3p);
+		filter_display(c, rule);
+		break;
+
+	case FilterSel1Party: /* fall through */
+		thisparty = &editing1p;
+		thatparty = &editing3p;
+	case FilterSel3Party:
+		if (NULL == thisparty) {
+			thisparty = &editing3p;
+			thatparty = &editing1p;
+		}
+		if (0 == *thisparty)
+			*thisparty = 1;
+		else
+			*thatparty = 0;
+		rule->p1.hide = editing1p ? 0 : 1;
+		rule->p3.hide = editing3p ? 0 : 1;
+		rule->dirtydisplay = 1;
+		filter_display(c, rule);
+		break;
+
+	case FilterDispRule:
+		filter_display(c, rule);
+		break;
+	case FilterTglDomDisp:
+		rule->hidedomain = rule->hidedomain ? 0 : 1;
+		rule->dirtydisplay = 1;
+		filter_display(c, rule);
+		break;
+	case FilterApply:
+		filter_apply(c);
+		break;
+	case FilterWrite:
+		filter_write();
+		break;
+	case FilterResetRule:
+		filter_reset(rule);
+		filter_display(c, rule);
+		break;
+	case FilterTogGlobal:
+		if (curconfig[ContentFilter].val.i) {
+			webkit_user_content_manager_remove_all_filters(
+				webkit_web_view_get_user_content_manager(
+					c->view)
+			);
+			curconfig[ContentFilter].val.i = 0;
+			reload(c, &passthru);
+		} else {
+			curconfig[ContentFilter].val.i = 1;
+			filter_apply(c);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 void
@@ -2108,6 +3209,14 @@ main(int argc, char *argv[])
 		defconfig[Certificate].val.i = 1;
 		defconfig[Certificate].prio = 2;
 		break;
+	case 'y':
+		defconfig[ContentFilter].val.i = 0;
+		defconfig[ContentFilter].prio = 2;
+		break;
+	case 'Y':
+		defconfig[ContentFilter].val.i = 1;
+		defconfig[ContentFilter].prio = 2;
+		break;
 	case 'z':
 		defconfig[ZoomLevel].val.f = strtof(EARGF(usage()), NULL);
 		defconfig[ZoomLevel].prio = 2;
@@ -2122,6 +3231,8 @@ main(int argc, char *argv[])
 
 	setup();
 	c = newclient(NULL);
+	filter_read();
+	filter_apply(c);
 	showview(NULL, c);
 
 	loaduri(c, &arg);

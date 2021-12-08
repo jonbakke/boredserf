@@ -3,7 +3,7 @@
 surf \- simple webkit-based browser
 .SH SYNOPSIS
 .B surf
-.RB [-bBdDfFgGiIkKmMnNpPsStTvwxX]
+.RB [-bBdDfFgGiIkKmMnNpPsStTvwxXyY]
 .RB [-a\ cookiepolicies]
 .RB [-c\ cookiefile]
 .RB [-C\ stylefile]
@@ -126,6 +126,12 @@ Disable custom certificates.
 .B -X
 Enable custom certificates.
 .TP
+.B -y
+Disable content blocker.
+.TP
+.B -Y
+Enable content blocker.
+.TP
 .B \-z zoomlevel
 Specify the
 .I zoomlevel
@@ -225,6 +231,10 @@ Toggle script execution. This will reload the page.
 .B Ctrl\-Shift\-t
 Toggle strict TLS check. This will reload the page.
 .TP
+.B Ctrl\-Shift\-y
+Enter content blocker mode. See
+.I content blocking\fR, below.
+.TP
 .B F11
 Toggle fullscreen mode.
 .SH INDICATORS OF OPERATION
@@ -285,6 +295,107 @@ no proxy
 .TP
 .B P
 using proxy
+.SH CONTENT BLOCKING
+Content blocking rules cycle through three states: inheriting other rules, blocking requests, and allowing requests that might otherwise be blocked. In its default state, all rules are inherited, so the first press of a given type will block it.
+.TP
+Rules may be edited by first- or third-party connections. That is, requests that match the same domain URI as the one navigated to in the browser are first party, and requests to other addresses are third party. In its default state, all rules are changed in both first- and third-party rules. Pressing `1' will allow further presses to modify first-party rules exclusively. Pressing `3' then includes third-party rules; pressing `3' again excludes first-party rules. When excluded, the party will disappear from the status indicators but will still be applied as content blockers.
+.TP
+Modifications will not persist automatically. To save rules. use `w' to write them to disk. This will overwrite the existing configuration file and will include all modifications made during the current browser's session, not just the rules for the current page.
+.SS Caution
+The content blocker will make webpages behave unexpectedly. Blocking first-party documents will prevent the webpage from loading, which in turn prevents the browser from editing its rules, requiring manual editing of the configuration file. This is not intended as a set\-and\-forget ad blocker but as a tool for taking ownership of how websites use your computer.
+.TP
+Furthermore, WebKit only blocks network requests by their explicitly named content type. The content blocker does not audit the content itself; a request made for an image may return a script, and once retrieved that script will be educated despite any content-blocker configuration against it. The same also applies to inline content, commonly including scripts and SVG images.
+.SS Usage
+.TP
+.B Ctrl\-Shift\-y
+enter content blocking mode from the default keymap
+.TP
+In the content blocking mode, the following keys are available:
+.TP
+.B a\fR, \fBReturn
+apply the current rules
+.TP
+.B c
+cycle rule for CSS
+.TP
+.B d
+cycle rule for documents
+.TP
+.B f
+cycle rule for fonts
+.TP
+.B i
+cycle rule for images
+.TP
+.B m
+cycle rule for media
+.TP
+.B p
+cycle rule for popups
+.TP
+.B q\fR, \fBEscape
+reset rule to defaults
+.TP
+.B r
+cycle rule for raw (unspecified) requests
+.TP
+.B s
+cycle rule for scripts
+.TP
+.B t
+toggle content blocking
+.TP
+.B v
+cycle rule for SVG documents
+.TP
+.B w
+write all rules to disk
+.TP
+.B 1
+configure first-party request blocking, or, if already configuring first-party options, exclude third-party configuration
+.TP
+.B 2
+toggle visibility of the URI navigated to in browser; does not modify the behavior of other keys
+.TP
+.B 3
+configure third-party request blocking, or, if already configuring third-party options, exclude first-party configuration
+.TP
+Any other key returns to the default keymap.
+.SS Indicators
+The content blocker status is provided in four sections: the request URI, if any; the URI navigated to in the browser, or '*' if not limited in this way; and two blocks of status indicators, the first preceded by '1' providing the status of first-party content blocking and the second preceded by '3' providing the status of third-party content blocking.
+.TP
+The same characters are used as described in \fIUsage\fP, above. A capital letter (one of `DCFIVMSRP') indicates that this connection type is explicitly allowed. A lowercase letter (one of `dcfivmsrp') indicates that this connection type is explicitly denied. Any absent character indicates that this connection type is inherited from previous rules, if any.
+.SS Configuration File
+The content blocker, located by default at \fI~/.surf/filter.rules\fR, can be configured in exactly the same manner as its status indicator is displayed.
+.TP
+The file may have up to one rule per line. Contiguous whitespace is ignored, but whitespace delimits fields. The available fields are:
+.TP
+.B request-uri \fR(optional)
+also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that this is not editable in \fBsurf\fR, but is still used to block content.
+.TP
+.B browser-uri \fR(required)
+also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar.
+.TP
+.B first-party \fR(required)
+a list of characters in [dcfivmsrpDCFIVMSRP]. As before, lowercase letters block connections, uppercase letters allow them, and absent characters inherit other rules.
+.TP
+.B third-party \fR(required)
+same as \fIfirst-party\fP, above.
+.TP
+Later rules take precedence over earlier rules.
+.TP
+For example,
+.TP
+.B * 1cfivmsrp 3cfivmsrp
+will block all requests other than for documents, on all webpages.
+.TP
+.B surf.org 1I 3
+will let you see all the beautiful graphics on surf.org, but not those loaded from third parties due to the prior rule. Note that the `3' is mandatory even if all rules are to be inherited.
+.TP
+.B puppy * 1IMSR 3IMSR
+will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names.
+.TP
+The \fBsurf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
 .SH ENVIRONMENT
 .B SURF_USERAGENT
 If this variable is set upon startup, surf will use it as the

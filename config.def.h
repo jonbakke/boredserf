@@ -6,6 +6,8 @@ static char *styledir       = "~/.surf/styles/";
 static char *certdir        = "~/.surf/certificates/";
 static char *cachedir       = "~/.surf/cache/";
 static char *cookiefile     = "~/.surf/cookies.txt";
+static char *filterrulefile = "~/.surf/filter.rules";
+static char *filterdir      = "~/.surf/filters/";
 
 /* Webkit default features */
 /* Highest priority value will be used.
@@ -19,6 +21,7 @@ static Parameter defconfig[ParameterLast] = {
 	[AccessWebcam]        =       { { .i = 0 },     },
 	[Certificate]         =       { { .i = 0 },     },
 	[CaretBrowsing]       =       { { .i = 0 },     },
+	[ContentFilter]       =       { { .i = 1 },     },
 	[CookiePolicies]      =       { { .v = "@Aa" }, },
 	[DefaultCharset]      =       { { .v = "UTF-8" }, },
 	[DiskCache]           =       { { .i = 1 },     },
@@ -128,6 +131,31 @@ static SiteSpecific certs[] = {
  * If you use anything else but MODKEY and GDK_SHIFT_MASK, don't forget to
  * edit the CLEANMASK() macro.
  */
+
+/* content filter bindings */
+static Key filterkeys[] = {
+	{ 0, GDK_KEY_1,        filtercmd, { .i = FilterSel1Party  } },
+	{ 0, GDK_KEY_2,        filtercmd, { .i = FilterTglDomDisp } },
+	{ 0, GDK_KEY_3,        filtercmd, { .i = FilterSel3Party  } },
+	{ 0, GDK_KEY_a,        filtercmd, { .i = FilterApply      } },
+	{ 0, GDK_KEY_c,        filtercmd, { .i = FilterCSS        } },
+	{ 0, GDK_KEY_d,        filtercmd, { .i = FilterDocs       } },
+	{ 0, GDK_KEY_f,        filtercmd, { .i = FilterFonts      } },
+	{ 0, GDK_KEY_i,        filtercmd, { .i = FilterImages     } },
+	{ 0, GDK_KEY_m,        filtercmd, { .i = FilterMedia      } },
+	{ 0, GDK_KEY_p,        filtercmd, { .i = FilterPopup      } },
+	{ 0, GDK_KEY_q,        filtercmd, { .i = FilterResetRule  } },
+	{ 0, GDK_KEY_r,        filtercmd, { .i = FilterRaw        } },
+	{ 0, GDK_KEY_s,        filtercmd, { .i = FilterScripts    } },
+	{ 0, GDK_KEY_t,        filtercmd, { .i = FilterTogGlobal  } },
+	{ 0, GDK_KEY_v,        filtercmd, { .i = FilterSVG        } },
+	{ 0, GDK_KEY_w,        filtercmd, { .i = FilterWrite      } },
+	{ 0, GDK_KEY_Return,   filtercmd, { .i = FilterApply      } },
+	{ 0, GDK_KEY_Escape,   filtercmd, { .i = FilterResetRule  } },
+	{ 0, 0, NULL, { .v = NULL} }
+};
+
+/* default key bindings */
 static Key keys[] = {
 	/* modifier              keyval          function    arg */
 	{ MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO", PROMPT_GO) },
@@ -179,6 +207,8 @@ static Key keys[] = {
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_b,      toggle,     { .i = ScrollBars } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_t,      toggle,     { .i = StrictTLS } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_m,      toggle,     { .i = Style } },
+	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_y,      setkeytree, { .v = filterkeys } },
+	{ 0, 0, NULL, { .v = NULL} } /* last entry */
 };
 
 /* button definitions */
