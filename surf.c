@@ -1524,8 +1524,10 @@ filter_get(const char *fordomain)
 			filterrules->iftopurl = strdup(shorter);
 			return rule;
 		}
-		if (0 == strcmp(shorter, rule->iftopurl))
+		if (0 == strcmp(shorter, rule->iftopurl)) {
+			rule->dirtydisplay = rule->dirtyjson = 1;
 			return rule;
+		}
 		if (NULL == rule->next)
 			break;
 		rule = rule->next;
