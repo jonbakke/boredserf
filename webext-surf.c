@@ -43,6 +43,7 @@ readsock(GIOChannel *s, GIOCondition c, gpointer unused)
 	JSCContext *jsc;
 	GError *gerr = NULL;
 	gsize msgsz;
+	JSCValue *ignore;
 
 	if (g_io_channel_read_chars(s, msg, sizeof(msg), &msgsz, &gerr) !=
 	    G_IO_STATUS_NORMAL) {
@@ -72,7 +73,7 @@ readsock(GIOChannel *s, GIOCondition c, gpointer unused)
 		snprintf(js, sizeof(js),
 		         "window.scrollBy(window.innerWidth/100*%d,0);",
 		         msg[2]);
-		jsc_context_evaluate(jsc, js, -1);
+		ignore = jsc_context_evaluate(jsc, js, -1);
 		break;
 	case 'v':
 		if (msgsz != 3)
@@ -80,7 +81,7 @@ readsock(GIOChannel *s, GIOCondition c, gpointer unused)
 		snprintf(js, sizeof(js),
 		         "window.scrollBy(0,window.innerHeight/100*%d);",
 		         msg[2]);
-		jsc_context_evaluate(jsc, js, -1);
+		ignore = jsc_context_evaluate(jsc, js, -1);
 		break;
 	}
 
@@ -89,7 +90,7 @@ readsock(GIOChannel *s, GIOCondition c, gpointer unused)
 
 G_MODULE_EXPORT void
 webkit_web_extension_initialize_with_user_data(WebKitWebExtension *e,
-                                               const GVariant *gv)
+                                               GVariant *gv)
 {
 	GIOChannel *gchansock;
 
