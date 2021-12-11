@@ -371,10 +371,10 @@ The content blocker, located by default at \fI~/.surf/filter.rules\fR, can be co
 The file may have up to one rule per line. Contiguous whitespace is ignored, but whitespace delimits fields. The available fields are:
 .TP
 .B request-uri \fR(optional)
-also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that this is not editable in \fBsurf\fR, but is still used to block content.
+also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that rules with this field are not visible in \fBsurf\fR but are still used to block content. Rudimentary regular expressions are allowed, except those including whitespace (although '%20' is not seen as whitespace).
 .TP
 .B browser-uri \fR(required)
-also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar.
+also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBsurf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit.
 .TP
 .B first-party \fR(required)
 a list of characters in [dcfivmsrpDCFIVMSRP]. As before, lowercase letters block connections, uppercase letters allow them, and absent characters inherit other rules.
@@ -384,16 +384,21 @@ same as \fIfirst-party\fP, above.
 .TP
 Later rules take precedence over earlier rules.
 .TP
+Lines beginning with a '#', optionally preceded by spaces and/or tabs, and lines with less than three or more than four fields, including blank lines, are ignored and may be used for comments.
+.TP
 For example,
 .TP
 .B * 1cfivmsrp 3cfivmsrp
 will block all requests other than for documents, on all webpages.
 .TP
-.B surf.org 1I 3
-will let you see all the beautiful graphics on surf.org, but not those loaded from third parties due to the prior rule. Note that the `3' is mandatory even if all rules are to be inherited.
+.B suckless.org 1Is 3
+where the 'I' will let you see the sophisticated imagery on suckless.org, but the lack of an 'I' after '3' means that images from third parties will be blocked due to the previous rule. The 's' will strip inline, script-like content from the main HTML document. Note that the `3' is mandatory even if all rules are to be inherited.
 .TP
 .B puppy * 1IMSR 3IMSR
 will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names. Note, however, that the \fBsurf\fR interface only sets domain names for the browser-uri and will not present other rules for editing.
+.TP
+.B http://[^/]*suckless\\\\\\\\.org/ * 1dcfivmsrp 3dcfivmsrp
+will block all types of HTTP connections to a URI in a domain that matches 'suckless.org'. In effect, this requires all connections to such servers to be over HTTPS. Note that this is only a request made to the WebKit engine; it does not guarantee that no such connections will be made.
 .TP
 The \fBsurf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
 .SH ENVIRONMENT
