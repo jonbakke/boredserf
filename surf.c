@@ -181,6 +181,7 @@ typedef struct _FilterRule {
 	char *iftopurl;
 	char *activeuri;
 	char *jsonpreface;
+	char *comment;
 	FilterResources p1;
 	FilterResources p3;
 	unsigned int hidedomain;
@@ -1105,9 +1106,18 @@ filter_read(void)
 			free(desc);
 			break;
 		case 0:
+			rule->comment = malloc(1);
+			NULLGUARD(rule->comment);
+			rule->comment[0] = 0;
+			++field;
+			break;
+		case -1:
 			field = NULL;
 			break;
 		default:
+			rule->comment = strndup(field, linelen(field));
+			field += linelen(field);
+			field = nextfield(field);
 			break;
 		}
 		rule->next = malloc(sizeof(FilterRule));
@@ -1145,24 +1155,14 @@ filter_write(void)
 	NULLGUARD(output);
 
 	while (NULL != rule) {
-		if (
-			0 == rule->p1.allow &&
-			0 == rule->p1.block &&
-			0 == rule->p3.allow &&
-			0 == rule->p3.block
-		) {
+		ptr = rule->comment;
+		if (NULL != ptr) {
+			if (0 != rule->comment[0])
+				fwrite(ptr, 1, strlen(ptr), output);
+			fwrite("\n", 1, 1, output);
 			rule = rule->next;
 			continue;
 		}
-
-		hidep1 = rule->p1.hide;
-		hidep3 = rule->p3.hide;
-		if (hidep1 || hidep3) {
-			rule->p1.hide = 0;
-			rule->p3.hide = 0;
-		}
-		rule->dirtydisplay = 1;
-		filter_bitstotext(rule);
 
 		ptr = rule->ifurl;
 		if (NULL != ptr) {
@@ -1176,6 +1176,26 @@ filter_write(void)
 		else
 			fwrite("*", 1, 1, output);
 		fwrite(" ", 1, 1, output);
+
+		if (
+			0 == rule->p1.allow &&
+			0 == rule->p1.block &&
+			0 == rule->p3.allow &&
+			0 == rule->p3.block
+		) {
+			fwrite("1 3\n", 1, 4, output);
+			rule = rule->next;
+			continue;
+		}
+
+		hidep1 = rule->p1.hide;
+		hidep3 = rule->p3.hide;
+		if (hidep1 || hidep3) {
+			rule->p1.hide = 0;
+			rule->p3.hide = 0;
+		}
+		rule->dirtydisplay = 1;
+		filter_bitstotext(rule);
 
 		fwrite("1", 1, 1, output);
 		ptr = rule->p1.display;
@@ -1276,7 +1296,7 @@ filter_ruleinit(FilterRule *r)
 {
 	NULLGUARD(r);
 	r->ifurl = r->iftopurl = r->activeuri = r->jsonpreface = NULL;
-	r->p1.jsonallow = r->p1.jsonblock = NULL;
+	r->comment = r->p1.jsonallow = r->p1.jsonblock = NULL;
 	r->p1.display[0] = 0;
 	r->p1.allow = r->p1.block = r->p1.hide = 0;
 	r->p3.jsonallow = r->p3.jsonblock = NULL;
@@ -1294,6 +1314,7 @@ filter_reset(FilterRule *r)
 	freeandnull(r->ifurl);
 	freeandnull(r->activeuri);
 	freeandnull(r->jsonpreface);
+	freeandnull(r->comment);
 	freeandnull(r->p1.jsonallow);
 	freeandnull(r->p1.jsonblock);
 	freeandnull(r->p3.jsonallow);
@@ -1332,6 +1353,9 @@ filter_stripper(Client *c, const char *uri)
 		filter_stripperbytype(c, "embed");
 		filter_stripperbytype(c, "object");
 		filter_stripperbytype(c, "script");
+	}
+	if (rule->p1.block & 1<<FilterRaw) {
+		filter_stripperbytype(c, "link");
 	}
 }
 
@@ -1521,6 +1545,12 @@ filter_get(const char *fordomain)
 		strncpy(shorter, fordomain, maxlen);
 
 	while (NULL != rule) {
+		if (NULL != rule->ifurl || NULL != rule->comment) {
+			if (NULL == rule->next)
+				break;
+			rule = rule->next;
+			continue;
+		}
 		if (NULL == rule->iftopurl) {
 			filterrules->iftopurl = strdup(shorter);
 			return rule;
@@ -1877,9 +1907,13 @@ fieldcount(const char *in, int linelen)
 	int i;
 
 	NULLGUARD(in, -1);
+
+	if ('#' == in[0])
+		return 0;
 	while (pos < linelen) {
 		switch (in[pos++]) {
-		case 0:    /* fall through */
+		case 0:
+			return fields ? fields : -1;
 		case '\n':
 			return fields;
 		case ' ':  /* fall through */
@@ -1909,9 +1943,14 @@ nextfield(char *in)
 		case 0: /* fall through */
 			return NULL;
 		case ' ':  /* fall through */
-		case '\n': /* fall through */
 		case '\t':
 			isblank = 1;
+			break;
+		case '\n':
+			if (in[++pos])
+				return in + pos;
+			else
+				return NULL;
 			break;
 		default:
 			if (isblank)
@@ -1927,9 +1966,11 @@ char*
 getfield(char **in)
 {
 	char *result;
+	int len = 0;
 	NULLGUARD(in, NULL);
 	NULLGUARD(*in, NULL);
-	result = strndup(*in, fieldlen(*in));
+	len = fieldlen(*in);
+	result = strndup(*in, len ? len : 1);
 	*in = nextfield(*in);
 	return result;
 }
