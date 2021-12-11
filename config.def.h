@@ -8,6 +8,7 @@ static char *cachedir       = "~/.surf/cache/";
 static char *cookiefile     = "~/.surf/cookies.txt";
 static char *filterrulefile = "~/.surf/filter.rules";
 static char *filterdir      = "~/.surf/filters/";
+static char *histfile       = "~/.surf/histfile";
 
 /* Webkit default features */
 /* Highest priority value will be used.
@@ -52,6 +53,12 @@ static Parameter defconfig[ParameterLast] = {
 	[ZoomLevel]           =       { { .f = 1.0 },   },
 };
 
+static SearchEngine searchengines[] = {
+	{ "d", "https://duckduckgo.com/lite/?q=%s" },
+	{ "s", "https://www.startpage.com/sp/search?query=%s" },
+	{ "w", "https://en.wikipedia.org/wiki/Special:Search/%s" },
+};
+
 static UriParameters uriparams[] = {
 	{ "(://|\\.)suckless\\.org(/|$)", {
 	  [JavaScript] = { { .i = 0 }, 1 },
@@ -72,8 +79,10 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
         .v = (const char *[]){ "/bin/sh", "-c", \
              "prop=\"$(printf '%b' \"$(xprop -id $1 "r" " \
              "| sed -e 's/^"r"(UTF8_STRING) = \"\\(.*\\)\"/\\1/' " \
-             "      -e 's/\\\\\\(.\\)/\\1/g')\" " \
-             "| dmenu -p '"p"' -w $1)\" " \
+             "      -e 's/\\\\\\(.\\)/\\1/g' " \
+             "      	&& cat ~/.surf/bookmarks " \
+	     "          && cat ~/.surf/histfile)\" " \
+             "| dmenu -l 20 -fn UbuntuMono:size=22 -p '"p"' -w $1)\" " \
              "&& xprop -id $1 -f "s" 8u -set "s" \"$prop\"", \
              "surf-setprop", winid, NULL \
         } \
