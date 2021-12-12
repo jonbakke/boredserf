@@ -3,6 +3,10 @@ Manifestish summary: your web browser should be like a bored serf. Perhaps the
 time for pitchforks and democracy hasn't arrived yet, but we should still do
 what we can to put the power of the web back into the hands of the people.
 
+Alternative explainer: of these three things -- coastal waves, your surfboard,
+and what you do with the two of them -- which one would you want to
+be boring? The tool you use to browse the web should be the same.
+
 Geekspeak summary: boredserf is a browser built on the WebKitGTK[0] engine with
 the idea that the best programs are pipelines of simpler programs composed to
 suit the need at hand.
@@ -14,6 +18,8 @@ boredserf is currently little more than a fork of surf[1]. boredserf no longer
 maintains surf's philosophy and style, yet neither has it implemented its own.
 As the maps might once have said: There Be Bugs, Likely Big Ones With Wings And
 Pointy Teeth.
+
+Users of commercial operating systems need not apply.
 
 ### Content Blocker
 Mostly functioning:
