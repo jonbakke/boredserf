@@ -1,5 +1,5 @@
-# surf version
-VERSION = 2.1
+# boredserf version
+VERSION = 0.1
 
 # Customize below to fit your system
 
@@ -7,7 +7,7 @@ VERSION = 2.1
 PREFIX = /usr/local
 MANPREFIX = $(PREFIX)/share/man
 LIBPREFIX = $(PREFIX)/lib
-LIBDIR = $(LIBPREFIX)/surf
+LIBDIR = $(LIBPREFIX)/boredserf
 
 X11INC = `pkg-config --cflags x11`
 X11LIB = `pkg-config --libs x11`
@@ -25,8 +25,8 @@ LIBS = $(X11LIB) $(GTKLIB) -lgthread-2.0
 CPPFLAGS = -DVERSION=\"$(VERSION)\" -DGCR_API_SUBJECT_TO_CHANGE \
            -DLIBPREFIX=\"$(LIBPREFIX)\" -DWEBEXTDIR=\"$(LIBDIR)\" \
            -D_DEFAULT_SOURCE
-SURFCFLAGS = -fPIC $(INCS) $(CPPFLAGS)
+BS_CFLAGS = -fPIC $(INCS) $(CPPFLAGS)
 WEBEXTCFLAGS = -fPIC $(WEBEXTINC)
 
 # compiler
-#CC = c99
+CC = c99 -O2

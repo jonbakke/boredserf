@@ -1,14 +1,14 @@
 /* modifier 0 means no modifier */
-static int surfuseragent    = 1;  /* Append Surf version to default WebKit user agent */
+static int bs_useragent    = 1;  /* Append boredserf version to default WebKit user agent */
 static char *fulluseragent  = ""; /* Or override the whole user agent string */
-static char *scriptfile     = "~/.surf/script.js";
-static char *styledir       = "~/.surf/styles/";
-static char *certdir        = "~/.surf/certificates/";
-static char *cachedir       = "~/.surf/cache/";
-static char *cookiefile     = "~/.surf/cookies.txt";
-static char *filterrulefile = "~/.surf/filter.rules";
-static char *filterdir      = "~/.surf/filters/";
-static char *histfile       = "~/.surf/histfile";
+static char *scriptfile     = "~/.config/boredserf/script.js";
+static char *styledir       = "~/.config/boredserf/styles/";
+static char *certdir        = "~/.config/boredserf/certificates/";
+static char *cachedir       = "~/.config/boredserf/cache/";
+static char *cookiefile     = "~/.config/boredserf/cookies.txt";
+static char *filterrulefile = "~/.config/boredserf/filter.rules";
+static char *filterdir      = "~/.config/boredserf/filters/";
+static char *histfile       = "~/.config/boredserf/histfile";
 
 /* Webkit default features */
 /* Highest priority value will be used.
@@ -80,11 +80,11 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
              "prop=\"$(printf '%b' \"$(xprop -id $1 "r" " \
              "| sed -e 's/^"r"(UTF8_STRING) = \"\\(.*\\)\"/\\1/' " \
              "      -e 's/\\\\\\(.\\)/\\1/g' " \
-             "      	&& cat ~/.surf/bookmarks " \
-	     "          && cat ~/.surf/histfile)\" " \
+             "      	&& cat ~/.config/boredserf/bookmarks " \
+	     "          && cat ~/.config/boredserf/histfile)\" " \
              "| dmenu -l 20 -fn UbuntuMono:size=22 -p '"p"' -w $1)\" " \
              "&& xprop -id $1 -f "s" 8u -set "s" \"$prop\"", \
-             "surf-setprop", winid, NULL \
+             "boredserf-setprop", winid, NULL \
         } \
 }
 
@@ -93,7 +93,7 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
         .v = (const char *[]){ "st", "-e", "/bin/sh", "-c",\
              "curl -g -L -J -O -A \"$1\" -b \"$2\" -c \"$2\"" \
              " -e \"$3\" \"$4\"; read", \
-             "surf-download", useragent, cookiefile, r, u, NULL \
+             "boredserf-download", useragent, cookiefile, r, u, NULL \
         } \
 }
 
@@ -167,9 +167,9 @@ static Key filterkeys[] = {
 /* default key bindings */
 static Key keys[] = {
 	/* modifier              keyval          function    arg */
-	{ MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO", PROMPT_GO) },
-	{ MODKEY,                GDK_KEY_f,      spawn,      SETPROP("_SURF_FIND", "_SURF_FIND", PROMPT_FIND) },
-	{ MODKEY,                GDK_KEY_slash,  spawn,      SETPROP("_SURF_FIND", "_SURF_FIND", PROMPT_FIND) },
+	{ MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_BS_URI", "_BS_GO", PROMPT_GO) },
+	{ MODKEY,                GDK_KEY_f,      spawn,      SETPROP("_BS_FIND", "_BS_FIND", PROMPT_FIND) },
+	{ MODKEY,                GDK_KEY_slash,  spawn,      SETPROP("_BS_FIND", "_BS_FIND", PROMPT_FIND) },
 
 	{ 0,                     GDK_KEY_Escape, stop,       { 0 } },
 	{ MODKEY,                GDK_KEY_c,      stop,       { 0 } },

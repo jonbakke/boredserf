@@ -3,7 +3,7 @@
 # See the LICENSE file for copyright and license details. 
 #
 
-xidfile="$HOME/tmp/tabbed-surf.xid"
+xidfile="$HOME/tmp/tabbed-boredserf.xid"
 uri=""
 
 if [ "$#" -gt 0 ];
@@ -12,7 +12,7 @@ then
 fi
 
 runtabbed() {
-	tabbed -dn tabbed-surf -r 2 surf -e '' "$uri" >"$xidfile" \
+	tabbed -dn tabbed-bs -r 2 boredserf -e '' "$uri" >"$xidfile" \
 		2>/dev/null &
 }
 
@@ -26,7 +26,7 @@ else
 	then
 		runtabbed
 	else
-		surf -e "$xid" "$uri" >/dev/null 2>&1 &
+		boredserf -e "$xid" "$uri" >/dev/null 2>&1 &
 	fi
 fi
 

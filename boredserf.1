@@ -1,8 +1,8 @@
-.TH SURF 1 surf\-VERSION
+.TH BOREDSERF 1 boredserf\-VERSION
 .SH NAME
-surf \- simple webkit-based browser
+boredserf \- simple webkit-based browser
 .SH SYNOPSIS
-.B surf
+.B boredserf
 .RB [-bBdDfFgGiIkKmMnNpPsStTvwxXyY]
 .RB [-a\ cookiepolicies]
 .RB [-c\ cookiefile]
@@ -13,10 +13,10 @@ surf \- simple webkit-based browser
 .RB [-z\ zoomlevel]
 .RB [URI]
 .SH DESCRIPTION
-surf is a simple Web browser based on WebKit/GTK+. It is able
+boredserf is a simple Web browser based on WebKit/GTK+. It is able
 to display websites and follow links. It supports the XEmbed protocol
 which makes it possible to embed it in another application. Furthermore,
-one can point surf to another URI by setting its XProperties.
+one can point boredserf to another URI by setting its XProperties.
 .SH OPTIONS
 .TP
 .B \-a cookiepolicies
@@ -26,7 +26,7 @@ The default is "@Aa" but could be
 redefined in the
 .IR config.h ,
 with "A" meaning to
-accept all cookies, "a" to deny all cookies and "@", which tells surf to
+accept all cookies, "a" to deny all cookies and "@", which tells boredserf to
 accept no third party cookies.
 .TP
 .B \-b
@@ -56,10 +56,10 @@ Reparents to window specified by
 .IR xid .
 .TP
 .B \-f
-Start surf in windowed mode (not fullscreen).
+Start boredserf in windowed mode (not fullscreen).
 .TP
 .B \-F
-Start surf in fullscreen mode.
+Start boredserf in fullscreen mode.
 .TP
 .B \-g
 Disable giving the geolocation to websites.
@@ -110,7 +110,7 @@ Enable strict TLS check.
 .B \-u useragent
 Specify the
 .I useragent
-which surf should use.
+which boredserf should use.
 .TP
 .B \-v
 Prints version information to standard output, then exits.
@@ -135,7 +135,7 @@ Enable content blocker.
 .B \-z zoomlevel
 Specify the
 .I zoomlevel
-which surf should use.
+which boredserf should use.
 .SH USAGE
 .B Escape
 Stops loading current page or stops download.
@@ -238,7 +238,7 @@ Enter content blocker mode. See
 .B F11
 Toggle fullscreen mode.
 .SH INDICATORS OF OPERATION
-Surf is showing indicators of operation in front of the site title.
+boredserf is showing indicators of operation in front of the site title.
 For all indicators, unless otherwise specified, a lower case letter means disabled and an upper case letter means enabled.
 .TP
 .B A
@@ -304,7 +304,7 @@ Modifications will not persist automatically. To save rules. use `w' to write th
 .SS Caution
 The content blocker will make webpages behave unexpectedly. Blocking first-party documents will prevent the webpage from loading, which in turn prevents the browser from editing its rules, requiring manual editing of the configuration file. This is not intended as a set\-and\-forget ad blocker but as a tool for taking ownership of how websites use your computer.
 .TP
-While the WebKit content blocker only filters requests and not inline content, the \fBsurf\fR blocker strips specified tags for blocked content. This behavior is not inherited, however. To block inline content, set the rule explicitly for each domain.
+While the WebKit content blocker only filters requests and not inline content, the \fBboredserf\fR blocker strips specified tags for blocked content. This behavior is not inherited, however. To block inline content, set the rule explicitly for each domain.
 .SS Usage
 .TP
 .B Ctrl\-Shift\-y
@@ -366,15 +366,15 @@ The content blocker status is provided in four sections: the request URI, if any
 .TP
 The same characters are used as described in \fIUsage\fP, above. A capital letter (one of `DCFIVMSRP') indicates that this connection type is explicitly allowed. A lowercase letter (one of `dcfivmsrp') indicates that this connection type is explicitly denied. Any absent character indicates that this connection type is inherited from previous rules, if any.
 .SS Configuration File
-The content blocker, located by default at \fI~/.surf/filter.rules\fR, can be configured in exactly the same manner as its status indicator is displayed.
+The content blocker, located by default at \fI~/.config/boredserf/filter.rules\fR, can be configured in exactly the same manner as its status indicator is displayed.
 .TP
 The file may have up to one rule per line. Contiguous whitespace is ignored, but whitespace delimits fields. The available fields are:
 .TP
 .B request-uri \fR(optional)
-also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that rules with this field are not visible in \fBsurf\fR but are still used to block content. Rudimentary regular expressions are allowed, except those including whitespace (although '%20' is not seen as whitespace).
+also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that rules with this field are not visible in \fBboredserf\fR but are still used to block content. Rudimentary regular expressions are allowed, except those including whitespace (although '%20' is not seen as whitespace).
 .TP
 .B browser-uri \fR(required)
-also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBsurf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit.
+also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBboredserf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit.
 .TP
 .B first-party \fR(required)
 a list of characters in [dcfivmsrpDCFIVMSRP]. As before, lowercase letters block connections, uppercase letters allow them, and absent characters inherit other rules.
@@ -395,22 +395,22 @@ will block all requests other than for documents, on all webpages.
 where the 'I' will let you see the sophisticated imagery on suckless.org, but the lack of an 'I' after '3' means that images from third parties will be blocked due to the previous rule. The 's' will strip inline, script-like content from the main HTML document. Note that the `3' is mandatory even if all rules are to be inherited.
 .TP
 .B puppy * 1IMSR 3IMSR
-will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names. Note, however, that the \fBsurf\fR interface only sets domain names for the browser-uri and will not present other rules for editing.
+will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names. Note, however, that the \fBboredserf\fR interface only sets domain names for the browser-uri and will not present other rules for editing.
 .TP
 .B http://[^/]*suckless\\\\\\\\.org/ * 1dcfivmsrp 3dcfivmsrp
 will block all types of HTTP connections to a URI in a domain that matches 'suckless.org'. In effect, this requires all connections to such servers to be over HTTPS. Note that this is only a request made to the WebKit engine; it does not guarantee that no such connections will be made.
 .TP
-The \fBsurf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
+The \fBboredserf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
 .SH ENVIRONMENT
-.B SURF_USERAGENT
-If this variable is set upon startup, surf will use it as the
+.B BOREDSERF_USERAGENT
+If this variable is set upon startup, boredserf will use it as the
 .I useragent
 string.
 .TP
 .B http_proxy
-If this variable is set and not empty upon startup, surf will use it as the http proxy.
+If this variable is set and not empty upon startup, boredserf will use it as the http proxy.
 .SH SIGNALS
-Surf will reload the current page on
+boredserf will reload the current page on
 .BR SIGHUP .
 .SH SEE ALSO
 .BR dmenu(1),

@@ -1,26 +1,26 @@
-# surf - simple browser
+# boredserf - simple browser
 # See LICENSE file for copyright and license details.
 .POSIX:
 
 include config.mk
 
-SRC = surf.c
-WSRC = webext-surf.c
+SRC = boredserf.c
+WSRC = webext-boredserf.c
 OBJ = $(SRC:.c=.o)
 WOBJ = $(WSRC:.c=.o)
 WLIB = $(WSRC:.c=.so)
 
-all: options surf $(WLIB)
+all: options boredserf $(WLIB)
 
 options:
-	@echo surf build options:
+	@echo boredserf build options:
 	@echo "CC            = $(CC)"
-	@echo "CFLAGS        = $(SURFCFLAGS) $(CFLAGS)"
+	@echo "CFLAGS        = $(BS_CFLAGS) $(CFLAGS)"
 	@echo "WEBEXTCFLAGS  = $(WEBEXTCFLAGS) $(CFLAGS)"
 	@echo "LDFLAGS       = $(LDFLAGS)"
 
-surf: $(OBJ)
-	$(CC) $(SURFLDFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
+boredserf: $(OBJ)
+	$(CC) $(BS_LDFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
 
 $(OBJ) $(WOBJ): config.h common.h config.mk
 
@@ -28,7 +28,7 @@ config.h:
 	cp config.def.h $@
 
 $(OBJ): $(SRC)
-	$(CC) $(SURFCFLAGS) $(CFLAGS) -c $(SRC)
+	$(CC) $(BS_CFLAGS) $(CFLAGS) -c $(SRC)
 
 $(WLIB): $(WOBJ)
 	$(CC) -shared -Wl,-soname,$@ $(LDFLAGS) -o $@ $? $(WEBEXTLIBS)
@@ -37,37 +37,38 @@ $(WOBJ): $(WSRC)
 	$(CC) $(WEBEXTCFLAGS) $(CFLAGS) -c $(WSRC)
 
 clean:
-	rm -f surf $(OBJ)
+	rm -f boredserf $(OBJ)
 	rm -f $(WLIB) $(WOBJ)
 
 distclean: clean
-	rm -f config.h surf-$(VERSION).tar.gz
+	rm -f config.h boredserf-$(VERSION).tar.gz
 
 dist: distclean
-	mkdir -p surf-$(VERSION)
+	mkdir -p boredserf-$(VERSION)
 	cp -R LICENSE Makefile config.mk config.def.h README \
-	    surf-open.sh arg.h TODO.md surf.png \
-	    surf.1 common.h $(SRC) $(WSRC) surf-$(VERSION)
-	tar -cf surf-$(VERSION).tar surf-$(VERSION)
-	gzip surf-$(VERSION).tar
-	rm -rf surf-$(VERSION)
+	    boredserf-open.sh arg.h TODO.md \
+	    boredserf.1 common.h $(SRC) $(WSRC) boredserf-$(VERSION)
+	tar -cf boredserf-$(VERSION).tar boredserf-$(VERSION)
+	gzip boredserf-$(VERSION).tar
+	rm -rf boredserf-$(VERSION)
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp -f surf $(DESTDIR)$(PREFIX)/bin
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/surf
+	cp -f boredserf $(DESTDIR)$(PREFIX)/bin
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/boredserf
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	cp -f $(WLIB) $(DESTDIR)$(LIBDIR)
 	for wlib in $(WLIB); do \
 	    chmod 644 $(DESTDIR)$(LIBDIR)/$$wlib; \
 	done
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
-	sed "s/VERSION/$(VERSION)/g" < surf.1 > $(DESTDIR)$(MANPREFIX)/man1/surf.1
-	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/surf.1
+	sed "s/VERSION/$(VERSION)/g" < boredserf.1 > \
+		$(DESTDIR)$(MANPREFIX)/man1/boredserf.1
+	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/boredserf.1
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/surf
-	rm -f $(DESTDIR)$(MANPREFIX)/man1/surf.1
+	rm -f $(DESTDIR)$(PREFIX)/bin/boredserf
+	rm -f $(DESTDIR)$(MANPREFIX)/man1/boredserf.1
 	for wlib in $(WLIB); do \
 	    rm -f $(DESTDIR)$(LIBDIR)/$$wlib; \
 	done

@@ -19,7 +19,7 @@ static WebKitWebExtension *webext;
 static int sock;
 
 static void
-msgsurf(guint64 pageid, const char *s)
+msgboredserf(guint64 pageid, const char *s)
 {
 	static char msg[MSGBUFSZ];
 	size_t sln = strlen(s);
