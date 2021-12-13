@@ -71,22 +71,8 @@ int winsize[] = { 800, 600 };
 WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
                                     WEBKIT_FIND_OPTIONS_WRAP_AROUND;
 
-#define PROMPT_GO   "Go:"
-#define PROMPT_FIND "Find:"
-
-/* SETPROP(readprop, setprop, prompt)*/
-#define SETPROP(r, s, p) { \
-        .v = (const char *[]){ "/bin/sh", "-c", \
-             "prop=\"$(printf '%b' \"$(xprop -id $1 "r" " \
-             "| sed -e 's/^"r"(UTF8_STRING) = \"\\(.*\\)\"/\\1/' " \
-             "      -e 's/\\\\\\(.\\)/\\1/g' " \
-             "      	&& cat ~/.config/boredserf/bookmarks " \
-	     "          && cat ~/.config/boredserf/histfile)\" " \
-             "| dmenu -l 20 -fn UbuntuMono:size=22 -p '"p"' -w $1)\" " \
-             "&& xprop -id $1 -f "s" 8u -set "s" \"$prop\"", \
-             "boredserf-setprop", winid, NULL \
-        } \
-}
+const char selector_go[] = "dmenu -p Go:";
+const char selector_find[] = "dmenu -p Find:";
 
 /* DOWNLOAD(URI, referer) */
 #define DOWNLOAD(u, r) { \
@@ -167,10 +153,9 @@ Key filterkeys[] = {
 /* default key bindings */
 Key keys[] = {
 	/* modifier              keyval          function    arg */
-	{ MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_BS_URI", "_BS_GO", PROMPT_GO) },
-	{ MODKEY,                GDK_KEY_f,      spawn,      SETPROP("_BS_FIND", "_BS_FIND", PROMPT_FIND) },
-	{ MODKEY,                GDK_KEY_slash,  spawn,      SETPROP("_BS_FIND", "_BS_FIND", PROMPT_FIND) },
-
+	{ MODKEY,                GDK_KEY_g,      i_seturi,   { 0 } },
+	{ MODKEY,                GDK_KEY_f,      i_find,     { 0 } },
+	{ MODKEY,                GDK_KEY_slash,  i_find,     { 0 } },
 	{ 0,                     GDK_KEY_Escape, stop,       { 0 } },
 	{ MODKEY,                GDK_KEY_c,      stop,       { 0 } },
 

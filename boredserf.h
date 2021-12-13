@@ -190,9 +190,10 @@ void destroywin(GtkWidget* w, Client *c);
 gchar *parseuri(const gchar *uri);
 
 /* Hotkeys */
-gboolean runkey(Key key, Client *c);
-void resetkeytree(Client *c);
-void setkeytree(Client *c, const Arg *a);
+/* interactive */
+void i_seturi(Client *c, const Arg *a);
+void i_find(Client *c, const Arg *a);
+/* one-shot */
 void pasteuri(GtkClipboard *clipboard, const char *text, gpointer d);
 void reload(Client *c, const Arg *a);
 void print(Client *c, const Arg *a);
@@ -203,11 +204,15 @@ void scrollv(Client *c, const Arg *a);
 void scrollh(Client *c, const Arg *a);
 void navigate(Client *c, const Arg *a);
 void stop(Client *c, const Arg *a);
-void toggle(Client *c, const Arg *a);
 void togglefullscreen(Client *c, const Arg *a);
 void togglecookiepolicy(Client *c, const Arg *a);
 void toggleinspector(Client *c, const Arg *a);
+/* utility */
+gboolean runkey(Key key, Client *c);
+void resetkeytree(Client *c);
+void setkeytree(Client *c, const Arg *a);
 void find(Client *c, const Arg *a);
+void toggle(Client *c, const Arg *a);
 
 /* Buttons */
 void clicknavigate(Client *c, const Arg *a, WebKitHitTestResult *h);

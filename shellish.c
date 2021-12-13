@@ -59,23 +59,26 @@ filetostr(char *filename)
 }
 
 char*
-cmd(char *input, char *command)
+cmd(const char *input, const char *command)
 {
-	char *cmd_array[5] = { "/bin/sh", "sh", "-c", command, NULL };
+	const char *cmd_array[5] = { "/bin/sh", "sh", "-c", command, NULL };
 	char *result;
 	int len = 0;
 
 	nullguard(command, NULL);
 
 	result = cmd_abs(input, cmd_array);
-	len = strlen(result);
-	if ('\n' == result[len - 1])
-		result[len - 1] = 0;
-	return result;
+	if (NULL != result) {
+		len = strlen(result);
+		if ('\n' == result[len - 1])
+			result[len - 1] = 0;
+		return result;
+	}
+	return NULL;
 }
 
 char*
-cmd_abs(char *input, char **cmd_array)
+cmd_abs(const char *input, const char **cmd_array)
 {
 	char *buf;
 	char *result;
@@ -89,7 +92,6 @@ cmd_abs(char *input, char **cmd_array)
 	nullguard(cmd_array, NULL);
 	nullguard(cmd_array[0], NULL);
 	nullguard(cmd_array[1], NULL);
-	nullguard(cmd_array[2], NULL);
 
 	if (0 > pipe(cmdpipe) || 0 > pipe(retpipe))
 		err("Could not create pipe.", NULL);
@@ -103,7 +105,7 @@ cmd_abs(char *input, char **cmd_array)
 		close(cmdpipe[0]);
 		close(retpipe[1]);
 		close(2);
-		execv(cmd_array[0], &cmd_array[1]);
+		execv(cmd_array[0], (char * const *)&cmd_array[1]);
 	}
 
 	close(cmdpipe[0]);

@@ -33,6 +33,7 @@
 #include "common.h"
 #include "filter.h"
 #include "messages.h"
+#include "shellish.h"
 
 #include "config.h"
 
@@ -2028,6 +2029,32 @@ pasteuri(GtkClipboard *clipboard, const char *text, gpointer d)
 	Arg a = {.v = text };
 	if (text)
 		loaduri((Client *) d, &a);
+}
+
+void
+i_seturi(Client *c, const Arg *a)
+{
+	nullguard(c);
+	updatewinid(c);
+
+	char *uri = cmd(geturi(c), selector_go);
+	if (NULL != uri) {
+		setatom(c, AtomGo, uri);
+		free(uri);
+	}
+}
+
+void
+i_find(Client *c, const Arg *a)
+{
+	nullguard(c);
+	updatewinid(c);
+
+	char *input = cmd(getatom(c, AtomFind), selector_find);
+	if (NULL != input) {
+		setatom(c, AtomFind, input);
+		free(input);
+	}
 }
 
 void

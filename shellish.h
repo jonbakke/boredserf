@@ -25,8 +25,8 @@
 
 char* sh_expand(char *str);
 char* filetostr(char *filename);
-char* cmd(char *input, char *command);
-char* cmd_abs(char *input, char **cmd_array);
+char* cmd(const char *input, const char *command);
+char* cmd_abs(const char *input, const char **cmd_array);
 
 extern char **environ;
 
