@@ -159,14 +159,14 @@ filter_write(void)
 		fwrite("1", 1, 1, output);
 		ptr = rule->p1.display;
 		if (NULL != ptr) {
-			fwrite(ptr, 1, strlen(ptr), output);
+			fprintf(output, "%s", ptr);
 			fwrite(" ", 1, 1, output);
 		}
 
 		fwrite("3", 1, 1, output);
-		ptr = rule->p1.display;
+		ptr = rule->p3.display;
 		if (NULL != ptr) {
-			fwrite(ptr, 1, strlen(ptr), output);
+			fprintf(output, "%s", ptr);
 		}
 		fwrite("\n", 1, 1, output);
 
