@@ -10,6 +10,10 @@ char *filterrulefile = "~/.config/boredserf/filter.rules";
 char *filterdir      = "~/.config/boredserf/filters/";
 char *histfile       = "~/.config/boredserf/histfile";
 
+/* Utilities for interaction */
+const char selector_go[]   = "dmenu -p Go:";
+const char selector_find[] = "dmenu -p Find:";
+
 /* Webkit default features */
 /* Highest priority value will be used.
  * Default parameters are priority 0
@@ -70,9 +74,6 @@ int winsize[] = { 800, 600 };
 
 WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
                                     WEBKIT_FIND_OPTIONS_WRAP_AROUND;
-
-const char selector_go[] = "dmenu -p Go:";
-const char selector_find[] = "dmenu -p Find:";
 
 /* DOWNLOAD(URI, referer) */
 #define DOWNLOAD(u, r) { \
