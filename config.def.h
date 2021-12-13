@@ -1,14 +1,14 @@
 /* modifier 0 means no modifier */
-static int bs_useragent    = 1;  /* Append boredserf version to default WebKit user agent */
-static char *fulluseragent  = ""; /* Or override the whole user agent string */
-static char *scriptfile     = "~/.config/boredserf/script.js";
-static char *styledir       = "~/.config/boredserf/styles/";
-static char *certdir        = "~/.config/boredserf/certificates/";
-static char *cachedir       = "~/.config/boredserf/cache/";
-static char *cookiefile     = "~/.config/boredserf/cookies.txt";
-static char *filterrulefile = "~/.config/boredserf/filter.rules";
-static char *filterdir      = "~/.config/boredserf/filters/";
-static char *histfile       = "~/.config/boredserf/histfile";
+int bs_useragent    = 1;  /* Append boredserf version to default WebKit user agent */
+char *fulluseragent  = ""; /* Or override the whole user agent string */
+char *scriptfile     = "~/.config/boredserf/script.js";
+char *styledir       = "~/.config/boredserf/styles/";
+char *certdir        = "~/.config/boredserf/certificates/";
+char *cachedir       = "~/.config/boredserf/cache/";
+char *cookiefile     = "~/.config/boredserf/cookies.txt";
+char *filterrulefile = "~/.config/boredserf/filter.rules";
+char *filterdir      = "~/.config/boredserf/filters/";
+char *histfile       = "~/.config/boredserf/histfile";
 
 /* Webkit default features */
 /* Highest priority value will be used.
@@ -16,7 +16,7 @@ static char *histfile       = "~/.config/boredserf/histfile";
  * Per-uri parameters are priority 1
  * Command parameters are priority 2
  */
-static Parameter defconfig[ParameterLast] = {
+Parameter defconfig[ParameterLast] = {
 	/* parameter                    Arg value       priority */
 	[AccessMicrophone]    =       { { .i = 0 },     },
 	[AccessWebcam]        =       { { .i = 0 },     },
@@ -53,22 +53,22 @@ static Parameter defconfig[ParameterLast] = {
 	[ZoomLevel]           =       { { .f = 1.0 },   },
 };
 
-static SearchEngine searchengines[] = {
+SearchEngine searchengines[] = {
 	{ "d", "https://duckduckgo.com/lite/?q=%s" },
 	{ "s", "https://www.startpage.com/sp/search?query=%s" },
 	{ "w", "https://en.wikipedia.org/wiki/Special:Search/%s" },
 };
 
-static UriParameters uriparams[] = {
+UriParameters uriparams[] = {
 	{ "(://|\\.)suckless\\.org(/|$)", {
 	  [JavaScript] = { { .i = 0 }, 1 },
 	}, },
 };
 
 /* default window size: width, height */
-static int winsize[] = { 800, 600 };
+int winsize[] = { 800, 600 };
 
-static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
+WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
                                     WEBKIT_FIND_OPTIONS_WRAP_AROUND;
 
 #define PROMPT_GO   "Go:"
@@ -119,7 +119,7 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
  * The iteration will stop at the first match, beginning at the beginning of
  * the list.
  */
-static SiteSpecific styles[] = {
+SiteSpecific styles[] = {
 	/* regexp               file in $styledir */
 	{ ".*",                 "default.css" },
 };
@@ -128,7 +128,7 @@ static SiteSpecific styles[] = {
 /*
  * Provide custom certificate for urls
  */
-static SiteSpecific certs[] = {
+SiteSpecific certs[] = {
 	/* regexp               file in $certdir */
 	{ "://suckless\\.org/", "suckless.org.crt" },
 };
@@ -142,7 +142,7 @@ static SiteSpecific certs[] = {
  */
 
 /* content filter bindings */
-static Key filterkeys[] = {
+Key filterkeys[] = {
 	{ 0, GDK_KEY_1,        filtercmd, { .i = FilterSel1Party  } },
 	{ 0, GDK_KEY_2,        filtercmd, { .i = FilterTglDomDisp } },
 	{ 0, GDK_KEY_3,        filtercmd, { .i = FilterSel3Party  } },
@@ -165,7 +165,7 @@ static Key filterkeys[] = {
 };
 
 /* default key bindings */
-static Key keys[] = {
+Key keys[] = {
 	/* modifier              keyval          function    arg */
 	{ MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_BS_URI", "_BS_GO", PROMPT_GO) },
 	{ MODKEY,                GDK_KEY_f,      spawn,      SETPROP("_BS_FIND", "_BS_FIND", PROMPT_FIND) },
@@ -223,7 +223,7 @@ Key *defkeytree = keys;
 
 /* button definitions */
 /* target can be OnDoc, OnLink, OnImg, OnMedia, OnEdit, OnBar, OnSel, OnAny */
-static Button buttons[] = {
+Button buttons[] = {
 	/* target       event mask      button  function        argument        stop event */
 	{ OnLink,       0,              2,      clicknewwindow, { .i = 0 },     1 },
 	{ OnLink,       MODKEY,         2,      clicknewwindow, { .i = 1 },     1 },
