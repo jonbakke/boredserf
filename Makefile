@@ -4,7 +4,7 @@
 
 include config.mk
 
-SRC = boredserf.c
+SRC = boredserf.c messages.c
 WSRC = webext-boredserf.c
 OBJ = $(SRC:.c=.o)
 WOBJ = $(WSRC:.c=.o)

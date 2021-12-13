@@ -33,13 +33,10 @@
 
 #include "arg.h"
 #include "common.h"
+#include "messages.h"
 
 #define LENGTH(x)               (sizeof(x) / sizeof(x[0]))
 #define CLEANMASK(mask)         (mask & (MODKEY|GDK_SHIFT_MASK))
-#define NULLGUARD(x, ...)       do {if (NULL == x) \
-	{fprintf(stderr, "Unexpected null at line %d.\n", __LINE__); \
-		return __VA_ARGS__;} \
-	} while(0)
 
 enum { AtomFind, AtomGo, AtomUri, AtomUTF8, AtomLast };
 
@@ -197,7 +194,6 @@ typedef struct _FilterRule {
 } FilterRule;
 
 /* boredserf */
-static void die(const char *errstr, ...);
 static void usage(void);
 static void setup(void);
 static void sigchld(int unused);
@@ -401,17 +397,6 @@ static ParamName loadfinished[] = {
 #include "config.h"
 
 void
-die(const char *errstr, ...)
-{
-       va_list ap;
-
-       va_start(ap, errstr);
-       vfprintf(stderr, errstr, ap);
-       va_end(ap);
-       exit(1);
-}
-
-void
 usage(void)
 {
 	die("usage: boredserf [-bBdDfFgGiIkKmMnNpPsStTvwxXyY]\n"
@@ -429,10 +414,10 @@ setup(void)
 	/* clean up any zombies immediately */
 	sigchld(0);
 	if (signal(SIGHUP, sighup) == SIG_ERR)
-		die("Can't install SIGHUP handler");
+		die("Could not install SIGHUP handler.");
 
 	if (!(dpy = XOpenDisplay(NULL)))
-		die("Can't open default display");
+		die("Could not open default display.");
 
 	setenv("GDK_BACKEND", "x11", 0);
 
@@ -524,7 +509,7 @@ void
 sigchld(int unused)
 {
 	if (signal(SIGCHLD, sigchld) == SIG_ERR)
-		die("Can't install SIGCHLD handler");
+		die("Could not install SIGCHLD handler.");
 	while (waitpid(-1, NULL, WNOHANG) > 0)
 		;
 }
@@ -555,8 +540,10 @@ buildfile(const char *path)
 	g_free(bpath);
 	g_free(bname);
 
-	if (!(f = fopen(fpath, "a")))
-		die("Could not open file: %s\n", fpath);
+	if (!(f = fopen(fpath, "a"))) {
+		fprintf(stderr, "For %s: ", fpath);
+		die("Could not open file.");
+	}
 
 	g_chmod(fpath, 0600); /* always */
 	fclose(f);
@@ -569,8 +556,10 @@ getuserhomedir(const char *user)
 {
 	struct passwd *pw = getpwnam(user);
 
-	if (!pw)
-		die("Can't get user %s login information.\n", user);
+	if (!pw) {
+		fprintf(stderr, "For %s: ", user);
+		die("Could not get user login information.");
+	}
 
 	return pw->pw_dir;
 }
@@ -592,7 +581,7 @@ getcurrentuserhomedir(void)
 
 	pw = getpwuid(getuid());
 	if (!pw)
-		die("Can't get current user home directory\n");
+		die("Could not get current user home directory.");
 
 	return pw->pw_dir;
 }
@@ -608,8 +597,10 @@ buildpath(const char *path)
 		apath = g_strdup(path);
 
 	/* creating directory */
-	if (g_mkdir_with_parents(apath, 0700) < 0)
-		die("Could not access directory: %s\n", apath);
+	if (g_mkdir_with_parents(apath, 0700) < 0) {
+		fprintf(stderr, "For %s: ", apath);
+		die("Could not access directory.");
+	}
 
 	fpath = realpath(apath, NULL);
 	g_free(apath);
@@ -645,7 +636,7 @@ newclient(Client *rc)
 	Client *c;
 
 	if (!(c = calloc(1, sizeof(Client))))
-		die("Cannot malloc!\n");
+		die("Failed to allocate memory for Client.");
 
 	c->next = clients;
 	clients = c;
@@ -1085,12 +1076,12 @@ filter_read(void)
 	if (NULL == filterrulefile)
 		return;
 	file = fopen(filterrulefile, "r");
-	NULLGUARD(file);
+	nullguard(file);
 
 	fseek(file, 0, SEEK_END);
 	buflen = ftell(file);
 	buffer = malloc(buflen + 1);
-	NULLGUARD(buffer);
+	nullguard(buffer);
 	buffer[buflen] = 0;
 	rewind(file);
 
@@ -1103,7 +1094,7 @@ filter_read(void)
 	}
 
 	rule = filterrules = malloc(sizeof(FilterRule));
-	NULLGUARD(rule);
+	nullguard(rule);
 	filter_ruleinit(rule);
 	field = buffer;
 	while (field) {
@@ -1121,7 +1112,7 @@ filter_read(void)
 			break;
 		case 0:
 			rule->comment = malloc(1);
-			NULLGUARD(rule->comment);
+			nullguard(rule->comment);
 			rule->comment[0] = 0;
 			++field;
 			break;
@@ -1135,7 +1126,7 @@ filter_read(void)
 			break;
 		}
 		rule->next = malloc(sizeof(FilterRule));
-		NULLGUARD(rule->next);
+		nullguard(rule->next);
 		filter_ruleinit(rule->next);
 		rule->next->prev = rule;
 		rule = rule->next;
@@ -1161,12 +1152,12 @@ filter_write(void)
 	if (NULL == filterrules)
 		return;
 
-	NULLGUARD(filterrulefile);
+	nullguard(filterrulefile);
 	filterrulefiletemp = malloc(strlen(filterrulefile) + 4);
-	NULLGUARD(filterrulefiletemp);
+	nullguard(filterrulefiletemp);
 	sprintf(filterrulefiletemp, "%s%s", filterrulefile, "new");
 	output = fopen(filterrulefiletemp, "w+");
-	NULLGUARD(output);
+	nullguard(output);
 
 	while (NULL != rule) {
 		ptr = rule->comment;
@@ -1248,7 +1239,7 @@ filter_apply(Client *c)
 	if (NULL == filterrulefile || NULL == filterrules)
 		return;
 
-	NULLGUARD(c);
+	nullguard(c);
 
 	if (!curconfig[ContentFilter].val.i)
 		return;
@@ -1308,7 +1299,7 @@ filter_freeall(void)
 void
 filter_ruleinit(FilterRule *r)
 {
-	NULLGUARD(r);
+	nullguard(r);
 	r->ifurl = r->iftopurl = r->activeuri = r->jsonpreface = NULL;
 	r->comment = r->p1.jsonallow = r->p1.jsonblock = NULL;
 	r->p1.display[0] = 0;
@@ -1323,7 +1314,7 @@ filter_ruleinit(FilterRule *r)
 void
 filter_reset(FilterRule *r)
 {
-	NULLGUARD(r);
+	nullguard(r);
 	/* retain iftopurl, activeuri, and list links */
 	freeandnull(r->ifurl);
 	freeandnull(r->activeuri);
@@ -1344,7 +1335,7 @@ void
 filter_stripper(Client *c, const char *uri)
 {
 	FilterRule *rule = filter_get(uri);
-	NULLGUARD(rule);
+	nullguard(rule);
 	if (0 == rule->p1.block)
 		return;
 	if (rule->p1.block & 1<<FilterCSS)
@@ -1377,8 +1368,8 @@ void
 filter_stripperbytype(Client *c, const char *type)
 {
 	enum { maxlen = 2048 };
-	NULLGUARD(c);
-	NULLGUARD(type);
+	nullguard(c);
+	nullguard(type);
 	char script[maxlen];
 	snprintf(script, maxlen, "%s%s%s",
 		"var elements = document.getElementsByTagName(\"",
@@ -1392,7 +1383,7 @@ filter_stripperbytype(Client *c, const char *type)
 void
 filter_setresource(FilterRule *rule, int modify, int p1, int p3)
 {
-	NULLGUARD(rule);
+	nullguard(rule);
 #ifdef __WORDSIZE
 	if (modify >= __WORDSIZE) {
 		fprintf(stderr, "modify bits exceed word size; "
@@ -1423,7 +1414,7 @@ filter_setresource(FilterRule *rule, int modify, int p1, int p3)
 
 void
 filter_cycleresource(FilterResources *res, int type) {
-	NULLGUARD(res);
+	nullguard(res);
 	/* allow -> inherit; block -> allow; inherit -> block */
 	if (res->allow & (1 << type)) {
 		res->allow &= ~(1 << type);
@@ -1442,8 +1433,8 @@ filter_texttobits(const char *desc, int desclen, FilterResources *res)
 {
 	int pos = 0;
 	int type;
-	NULLGUARD(desc);
-	NULLGUARD(res);
+	nullguard(desc);
+	nullguard(res);
 	res->block = res->allow = 0;
 	if ('1' == desc[0] || '3' == desc[0])
 		++pos;
@@ -1482,7 +1473,7 @@ filter_bitstotext(FilterRule *rule)
 	int pos1, pos3;
 	int i;
 
-	NULLGUARD(rule);
+	nullguard(rule);
 	if (!rule->dirtydisplay)
 		return;
 
@@ -1520,7 +1511,7 @@ filter_bitstotext(FilterRule *rule)
 int
 filter_isactive(FilterResources *party, int type)
 {
-	NULLGUARD(party, 0);
+	nullguard(party, 0);
 	if (FilterResourceTypes <= type || 0 > type) {
 		fprintf(stderr, "Unrecognized resource type.\n");
 		return 0;
@@ -1546,10 +1537,10 @@ filter_get(const char *fordomain)
 	FilterRule *rule = filterrules;
 	char shorter[maxlen];
 
-	NULLGUARD(fordomain, NULL);
+	nullguard(fordomain, NULL);
 	if (NULL == filterrules) {
 		filterrules = malloc(sizeof(FilterRule));
-		NULLGUARD(filterrules, NULL);
+		nullguard(filterrules, NULL);
 		filter_ruleinit(filterrules);
 	}
 
@@ -1579,7 +1570,7 @@ filter_get(const char *fordomain)
 	}
 
 	rule->next = malloc(sizeof(FilterRule));
-	NULLGUARD(rule->next, NULL);
+	nullguard(rule->next, NULL);
 	filter_ruleinit(rule->next);
 	rule->next->iftopurl = strdup(shorter);
 	rule->next->prev = rule;
@@ -1593,8 +1584,8 @@ filter_display(Client *c, FilterRule *rule)
 	enum { maxlen = 256 };
 	static char display[maxlen];
 	int len = maxlen;
-	NULLGUARD(c);
-	NULLGUARD(rule);
+	nullguard(c);
+	nullguard(rule);
 	if (rule->dirtydisplay)
 		filter_bitstotext(rule);
 
@@ -1655,7 +1646,7 @@ filter_updatejson(void)
 	int first = 1;
 
 	j = malloc(len);
-	NULLGUARD(j);
+	nullguard(j);
 	j[0] = 0;
 
 	reallocstradd(&j, &len, "[");
@@ -1724,7 +1715,7 @@ filter_ruletojson(FilterRule *rule)
 	char *p;
 	int c;
 
-	NULLGUARD(rule);
+	nullguard(rule);
 	rule->dirtyjson = 0;
 	if (
 		0 == rule->p1.allow &&
@@ -1790,7 +1781,7 @@ filter_setresourcenames(int types, char **names)
 	int first = 1;
 	int i;
 
-	NULLGUARD(names);
+	nullguard(names);
 	if (NULL != *names) {
 		free(*names);
 		*names = NULL;
@@ -1816,7 +1807,7 @@ filter_setresourcenames(int types, char **names)
 void
 _ifnotnullfreeandnull(void **ptr)
 {
-	NULLGUARD(ptr);
+	nullguard(ptr);
 	if (NULL == *ptr)
 		return;
 	free(*ptr);
@@ -1831,7 +1822,7 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 	int start = 0;
 	int end = 0;
 
-	NULLGUARD(domain);
+	nullguard(domain);
 	if (NULL == uri) {
 		strncpy(domain, "*", maxdomlen);
 		return;
@@ -1877,7 +1868,7 @@ lentodelim(const char *in, const char *delims, int delimsz)
 	int testsz;
 	int i;
 
-	NULLGUARD(in, -1);
+	nullguard(in, -1);
 	if (NULL == delims || 0 == delimsz) {
 		test = &testnull;
 		testsz = 1;
@@ -1920,7 +1911,7 @@ fieldcount(const char *in, int linelen)
 	int pos = 0;
 	int i;
 
-	NULLGUARD(in, -1);
+	nullguard(in, -1);
 
 	if ('#' == in[0])
 		return 0;
@@ -1981,8 +1972,8 @@ getfield(char **in)
 {
 	char *result;
 	int len = 0;
-	NULLGUARD(in, NULL);
-	NULLGUARD(*in, NULL);
+	nullguard(in, NULL);
+	nullguard(*in, NULL);
 	len = fieldlen(*in);
 	result = strndup(*in, len ? len : 1);
 	*in = nextfield(*in);
@@ -1994,10 +1985,10 @@ stradd(char **base, int *remain, const char *addition)
 {
 	/* assumes addition is null-terminated */
 	int pos = 0;
-	NULLGUARD(base, 0);
-	NULLGUARD(*base, 0);
-	NULLGUARD(remain, 0);
-	NULLGUARD(addition, 0);
+	nullguard(base, 0);
+	nullguard(*base, 0);
+	nullguard(remain, 0);
+	nullguard(addition, 0);
 	if (strlen(addition) > *remain)
 		return -1;
 	while (addition[pos]) {
@@ -3083,8 +3074,8 @@ filtercmd(Client *c, const Arg *a)
 	int *thatparty = NULL;
 	Arg passthru = { .i = 1 };
 
-	NULLGUARD(c);
-	NULLGUARD(filterrules);
+	nullguard(c);
+	nullguard(filterrules);
 
 	uritodomain(webkit_web_view_get_uri(c->view), curdomain, maxdomlen);
 	if (0 == olddomain[0]) {
@@ -3094,7 +3085,7 @@ filtercmd(Client *c, const Arg *a)
 		strncpy(olddomain, curdomain, maxdomlen);
 		rule = filter_get(curdomain);
 	}
-	NULLGUARD(rule);
+	nullguard(rule);
 
 	switch (a->i) {
 	case FilterDocs:    /* fall through */
@@ -3328,6 +3319,7 @@ main(int argc, char *argv[])
 		break;
 	case 'v':
 		die("boredserf-"VERSION", see LICENSE for © details\n");
+		break;
 	case 'w':
 		showxid = 1;
 		break;
