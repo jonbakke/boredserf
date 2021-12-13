@@ -14,6 +14,15 @@ typedef enum {
 	FilterRaw,
 	FilterPopup,
 	FilterResourceTypes,
+	AllowDocs,
+	AllowCSS,
+	AllowFonts,
+	AllowImages,
+	AllowSVG,
+	AllowMedia,
+	AllowScripts,
+	AllowRaw,
+	AllowPopup,
 	FilterSel1Party,
 	FilterSel3Party,
 	FilterDispRule,
@@ -23,6 +32,11 @@ typedef enum {
 	FilterResetRule,
 	FilterTogGlobal,
 } FilterCommand;
+
+typedef enum {
+	SetFilterToBlock,
+	SetFilterToAllow,
+} FilterToggleCommand;
 
 typedef struct {
 	char display[FilterResourceTypes];
@@ -67,8 +81,7 @@ void filter_stripperbytype(Client *c, const char *type);
 void filter_rulecycle(FilterRule *rule, int modify, int p1, int p3);
 void filter_texttobits(const char *desc, int len, FilterResources *r);
 void filter_bitstotext(FilterRule *rule);
-int  filter_isactive(FilterResources *party, int type);
-void filter_setresource(FilterRule *rule, int modify, int p1, int p3);
+void filter_setresource(FilterRule *rule, int cmd, int modify, int p1, int p3);
 void filter_setresourcenames(int types, char **names);
 void filter_cycleresource(FilterResources *res, int type);
 void filter_display(Client *c, FilterRule *rule);
@@ -89,5 +102,6 @@ char* nextfield(char *in);
 char* getfield(char **in);
 int stradd(char **base, int *remain, const char *addition);
 void reallocstradd(char **base, int *maxlen, const char *addition);
+int guardwordsize(int modify);
 
 #endif /* FILTER_H */

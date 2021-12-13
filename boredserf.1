@@ -296,7 +296,9 @@ no proxy
 .B P
 using proxy
 .SH CONTENT BLOCKING
-Content blocking rules cycle through three states: inheriting other rules, blocking requests, and allowing requests that might otherwise be blocked. In its default state, all rules are inherited, so the first press of a given type will block it.
+The content blocker uses rules, one for each combination of URI of the requested resource and URI of the main page (usually the address you have navigated to). These rules specify behaviors for first- and third-party connections for each of nine states: documents, CSS, fonts, images, SVG documents, media, scripts, raw (untyped) connections, and popups. The behaviors are to block, to allow, or to inherit previous rules, defaulting ultimately to allow.
+.TP
+To change behavior for the current domain, enter the content blocking mode and use the keys described in \fIUsage\fR, below.
 .TP
 Rules may be edited by first- or third-party connections. That is, requests that match the same domain URI as the one navigated to in the browser are first party, and requests to other addresses are third party. In its default state, all rules are changed in both first- and third-party rules. Pressing `1' will allow further presses to modify first-party rules exclusively. Pressing `3' then includes third-party rules; pressing `3' again excludes first-party rules. When excluded, the party will disappear from the status indicators but will still be applied as content blockers.
 .TP
@@ -316,37 +318,64 @@ In the content blocking mode, the following keys are available:
 apply the current rules
 .TP
 .B c
-cycle rule for CSS
+toggle blocking CSS
+.TP
+.B C
+toggle allowing CSS
 .TP
 .B d
-cycle rule for documents
+toggle blocking documents
+.TP
+.B D
+toggle allowing documents
 .TP
 .B f
-cycle rule for fonts
+toggle blocking fonts
+.TP
+.B F
+toggle allowing fonts
 .TP
 .B i
-cycle rule for images
+toggle blocking images
+.TP
+.B I
+toggle allowing images
 .TP
 .B m
-cycle rule for media
+toggle blocking media
+.TP
+.B M
+toggle allowing media
 .TP
 .B p
-cycle rule for popups
+toggle blocking popups
+.TP
+.B P
+toggle allowing popups
 .TP
 .B q\fR, \fBEscape
 reset rule to defaults
 .TP
 .B r
-cycle rule for raw (unspecified) requests
+toggle blocking raw (unspecified) requests
+.TP
+.B R
+toggle allowing raw (unspecified) requests
 .TP
 .B s
-cycle rule for scripts
+toggle blocking scripts
+.TP
+.B S
+toggle allowing scripts
 .TP
 .B t
 toggle content blocking
 .TP
 .B v
-cycle rule for SVG documents
+toggle blocking SVG documents
+.TP
+.B V
+toggle allowing SVG documents
 .TP
 .B w
 write all rules to disk

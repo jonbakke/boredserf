@@ -335,52 +335,61 @@ filter_stripperbytype(Client *c, const char *type)
 }
 
 void
-filter_setresource(FilterRule *rule, int modify, int p1, int p3)
+filter_setresource(FilterRule *rule, int cmd, int type, int p1, int p3)
 {
+	int *thisrule1, *thisrule3;
+	int *thatrule1, *thatrule3;
+
 	nullguard(rule);
-#ifdef __WORDSIZE
-	if (modify >= __WORDSIZE) {
-		fprintf(stderr, "modify bits exceed word size; "
-			"check the enum FilterCommand value passed to "
-			"filtercmd()\n");
+	if (guardwordsize(type))
+		return;
+
+	switch (cmd) {
+	case SetFilterToBlock:
+		thisrule1 = &rule->p1.block;
+		thisrule3 = &rule->p3.block;
+		thatrule1 = &rule->p1.allow;
+		thatrule3 = &rule->p3.allow;
+		break;
+	case SetFilterToAllow:
+		thisrule1 = &rule->p1.allow;
+		thisrule3 = &rule->p3.allow;
+		thatrule1 = &rule->p1.block;
+		thatrule3 = &rule->p3.block;
+		break;
+	default:
+		err("Unrecognized command type.\n");
 		return;
 	}
-#endif /* __WORDSIZE */
 
 	if (p1 && p3) {
 		/* set both to new p1 value */
-		filter_cycleresource(&rule->p1, modify);
-		while (
-			((rule->p1.allow & (1 << modify)) !=
-				(rule->p3.allow & (1 << modify))) ||
-			((rule->p1.block & (1 << modify)) !=
-				(rule->p3.block & (1 << modify)))
-		) {
-			filter_cycleresource(&rule->p3, modify);
+		if (*thisrule1 & 1 << type) {
+			*thisrule1 &= ~(1<<type);
+			*thisrule3 &= ~(1<<type);
+		} else {
+			*thisrule1 |= 1<<type;
+			*thisrule3 |= 1<<type;
+			*thatrule1 &= ~(1<<type);
+			*thatrule3 &= ~(1<<type);
 		}
 	} else if (p1) {
-		filter_cycleresource(&rule->p1, modify);
+		if (*thisrule1 & 1 << type) {
+			*thisrule1 &= ~(1<<type);
+		} else {
+			*thisrule1 |= 1<<type;
+			*thatrule1 &= ~(1<<type);
+		}
 	} else if (p3) {
-		filter_cycleresource(&rule->p3, modify);
+		if (*thisrule3 & 1 << type) {
+			*thisrule3 &= ~(1<<type);
+		} else {
+			*thisrule3 |= 1<<type;
+			*thatrule3 &= ~(1<<type);
+		}
 	}
 	rule->dirtydisplay = rule->dirtyjson = 1;
 }
-
-void
-filter_cycleresource(FilterResources *res, int type) {
-	nullguard(res);
-	/* allow -> inherit; block -> allow; inherit -> block */
-	if (res->allow & (1 << type)) {
-		res->allow &= ~(1 << type);
-		res->block &= ~(1 << type);
-	} else if (res->block & (1 << type)) {
-		res->allow |=   1 << type;
-		res->block &= ~(1 << type);
-	} else {
-		res->allow &= ~(1 << type);
-		res->block |=   1 << type;
-	}
-};
 
 void
 filter_texttobits(const char *desc, int desclen, FilterResources *res)
@@ -433,55 +442,20 @@ filter_bitstotext(FilterRule *rule)
 
 	pos1 = pos3 = 0;
 	for (i = 0; i < FilterResourceTypes; ++i) {
-		switch (filter_isactive(&rule->p1, i)) {
-		case 1:
+		if (rule->p1.allow & 1<<i)
 			rule->p1.display[pos1++] = allowed[i];
-			break;
-		case 2:
+		else if (rule->p1.block & 1<<i)
 			rule->p1.display[pos1++] = blocked[i];
-			break;
-		default:
-			break;
-		}
 
-		switch (filter_isactive(&rule->p3, i)) {
-		case 1:
+		if (rule->p3.allow & 1<<i)
 			rule->p3.display[pos3++] = allowed[i];
-			break;
-		case 2:
+		else if (rule->p3.block & 1<<i)
 			rule->p3.display[pos3++] = blocked[i];
-			break;
-		default:
-			break;
-		}
 	}
 
 	rule->p1.display[pos1] = 0;
 	rule->p3.display[pos3] = 0;
 	rule->dirtydisplay = 0;
-}
-
-/* returns 0 for ignore, 1 for allow, 2 for block */
-int
-filter_isactive(FilterResources *party, int type)
-{
-	nullguard(party, 0);
-	if (FilterResourceTypes <= type || 0 > type) {
-		fprintf(stderr, "Unrecognized resource type.\n");
-		return 0;
-	}
-	if ((party->allow & 1<<type) && (party->block & 1<<type)) {
-		fprintf(stderr, "Cannot allow and block. Ignoring rule.\n");
-		party->allow = party->block = 0;
-		return 0;
-	}
-	if (! (party->allow & 1<<type) && ! (party->block & 1<<type))
-		return 0;
-	if (party->allow & 1<<type)
-		return 1;
-	if (party->block & 1<<type)
-		return 2;
-	return 0;
 }
 
 FilterRule*
@@ -962,9 +936,6 @@ filtercmd(Client *c, const Arg *a)
 
 	switch (a->i) {
 	case FilterDocs:    /* fall through */
-		/* do not disable 1p documents */
-		//if (editing1p)
-		//	break;
 	case FilterCSS:     /* fall through */
 	case FilterFonts:   /* fall through */
 	case FilterImages:  /* fall through */
@@ -973,7 +944,32 @@ filtercmd(Client *c, const Arg *a)
 	case FilterScripts: /* fall through */
 	case FilterRaw:     /* fall through */
 	case FilterPopup:
-		filter_setresource(rule, a->i, editing1p, editing3p);
+		filter_setresource(
+			rule,
+			SetFilterToBlock,
+			a->i,
+			editing1p,
+			editing3p
+		);
+		filter_display(c, rule);
+		break;
+
+	case AllowDocs:    /* fall through */
+	case AllowCSS:     /* fall through */
+	case AllowFonts:   /* fall through */
+	case AllowImages:  /* fall through */
+	case AllowSVG:     /* fall through */
+	case AllowMedia:   /* fall through */
+	case AllowScripts: /* fall through */
+	case AllowRaw:     /* fall through */
+	case AllowPopup:
+		filter_setresource(
+			rule,
+			SetFilterToAllow,
+			a->i - AllowDocs,
+			editing1p,
+			editing3p
+		);
 		filter_display(c, rule);
 		break;
 
@@ -1030,3 +1026,18 @@ filtercmd(Client *c, const Arg *a)
 		break;
 	}
 }
+
+int
+guardwordsize(int modify)
+{
+#ifdef __WORDSIZE
+	if (modify >= __WORDSIZE) {
+		fprintf(stderr, "modify bits exceed word size; "
+			"check the enum FilterCommand value passed "
+			"to filtercmd()\n");
+		return 1;
+	}
+#endif /* __WORDSIZE */
+	return 0;
+}
+
