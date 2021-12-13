@@ -934,3 +934,99 @@ getfield(char **in)
 	return result;
 }
 
+void
+filtercmd(Client *c, const Arg *a)
+{
+	enum { maxdomlen = 1024 };
+	static char olddomain[maxdomlen] = { 0 };
+	char curdomain[maxdomlen] = { 0 };
+	static FilterRule *rule;
+	static int editing1p = 1;
+	static int editing3p = 1;
+	int *thisparty = NULL;
+	int *thatparty = NULL;
+	Arg passthru = { .i = 1 };
+
+	nullguard(c);
+	nullguard(filterrules);
+
+	uritodomain(webkit_web_view_get_uri(c->view), curdomain, maxdomlen);
+	if (0 == olddomain[0]) {
+		strcpy(olddomain, curdomain);
+		rule = filter_get(curdomain);
+	} else if (0 != strcmp(curdomain, olddomain)) {
+		strncpy(olddomain, curdomain, maxdomlen);
+		rule = filter_get(curdomain);
+	}
+	nullguard(rule);
+
+	switch (a->i) {
+	case FilterDocs:    /* fall through */
+		/* do not disable 1p documents */
+		//if (editing1p)
+		//	break;
+	case FilterCSS:     /* fall through */
+	case FilterFonts:   /* fall through */
+	case FilterImages:  /* fall through */
+	case FilterSVG:     /* fall through */
+	case FilterMedia:   /* fall through */
+	case FilterScripts: /* fall through */
+	case FilterRaw:     /* fall through */
+	case FilterPopup:
+		filter_setresource(rule, a->i, editing1p, editing3p);
+		filter_display(c, rule);
+		break;
+
+	case FilterSel1Party: /* fall through */
+		thisparty = &editing1p;
+		thatparty = &editing3p;
+	case FilterSel3Party:
+		if (NULL == thisparty) {
+			thisparty = &editing3p;
+			thatparty = &editing1p;
+		}
+		if (0 == *thisparty)
+			*thisparty = 1;
+		else
+			*thatparty = 0;
+		rule->p1.hide = editing1p ? 0 : 1;
+		rule->p3.hide = editing3p ? 0 : 1;
+		rule->dirtydisplay = 1;
+		filter_display(c, rule);
+		break;
+
+	case FilterDispRule:
+		filter_display(c, rule);
+		break;
+	case FilterTglDomDisp:
+		rule->hidedomain = rule->hidedomain ? 0 : 1;
+		rule->dirtydisplay = 1;
+		filter_display(c, rule);
+		break;
+	case FilterApply:
+		filter_apply(c);
+		break;
+	case FilterWrite:
+		filter_write();
+		break;
+	case FilterResetRule:
+		filter_reset(rule);
+		filter_display(c, rule);
+		break;
+	case FilterTogGlobal:
+		if (curconfig[ContentFilter].val.i) {
+			webkit_user_content_manager_remove_all_filters(
+				webkit_web_view_get_user_content_manager(
+					c->view)
+			);
+			curconfig[ContentFilter].val.i = 0;
+			reload(c, &passthru);
+		} else {
+			curconfig[ContentFilter].val.i = 1;
+			filter_apply(c);
+		}
+		break;
+	default:
+		break;
+	}
+}
