@@ -5,7 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "messages.h"
+#include "common.h"
 #include "shellish.h"
 
 char*

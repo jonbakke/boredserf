@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "messages.h"
+#include "common.h"
 
 void
 _die(char *msg, int line)
@@ -14,5 +14,15 @@ void
 _err(char *msg, int line)
 {
 	fprintf(stderr, "At %d: %s\n", line, msg);
+}
+
+void
+_ifnotnullfreeandnull(void **ptr)
+{
+	nullguard(ptr);
+	if (NULL == *ptr)
+		return;
+	free(*ptr);
+	*ptr = NULL;
 }
 

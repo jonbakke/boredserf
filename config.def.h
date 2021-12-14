@@ -13,12 +13,12 @@ char *histfile       = "~/.config/boredserf/histfile";
 /* Utilities for interaction */
 const char *selector_go[] = {
 	"/usr/bin/dmenu",
-	"dmenu", "-p", "Go:", "-w", winid,
+	"dmenu", "-i", "-p", "Go:", "-w", winid,
 	NULL,
 };
 const char *selector_find[] = {
 	"/usr/bin/dmenu",
-	"dmenu", "-p", "Find:", "-w", winid,
+	"dmenu", "-i", "-p", "Find:", "-w", winid,
 	NULL
 };
 

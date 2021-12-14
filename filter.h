@@ -91,8 +91,6 @@ FilterRule* filter_get(const char *fordomain);
 void filtercmd(Client *c, const Arg *a);
 
 /* utilities */
-#define freeandnull(x) _ifnotnullfreeandnull((void*)&x)
-void _ifnotnullfreeandnull(void **var);
 void uritodomain(const char *uri, char *domain, int maxdomlen);
 int lentodelim(const char *in, const char *delims, int delimsz);
 int linelen(const char *in);

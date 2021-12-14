@@ -32,7 +32,6 @@
 #include "boredserf.h"
 #include "common.h"
 #include "filter.h"
-#include "messages.h"
 #include "shellish.h"
 
 #include "config.h"
@@ -85,6 +84,7 @@ ParamName loadfinished[] = {
 char winid[64];
 char togglestats[11];
 char pagestats[2];
+char *pagetext;
 Atom atoms[AtomLast];
 Window embed;
 int showxid;
@@ -238,6 +238,8 @@ setup(void)
 				uriparams[i].config[j] = defconfig[j];
 		}
 	}
+
+	pagetext = NULL;
 }
 
 void
@@ -555,6 +557,61 @@ getpagestats(Client *c)
 		pagestats[0] = '-';
 	pagestats[1] = '\0';
 }
+
+void
+getpagetext(Client *c)
+{
+	nullguard(c);
+	freeandnull(pagetext);
+	webkit_web_view_run_javascript(
+		c->view,
+		"document.body.innerText",
+		NULL,
+		getpagetext_cb,
+		NULL
+	);
+}
+
+void
+getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	WebKitJavascriptResult *js_res;
+	JSCValue *value;
+	JSCException *exception;
+	GError *error = NULL;
+
+	js_res = webkit_web_view_run_javascript_finish(
+		WEBKIT_WEB_VIEW(source),
+		res,
+		&error
+	);
+	if (NULL == js_res) {
+		nullguard(error);
+		fprintf(stderr, "Error running find: %s", error->message);
+		g_error_free(error);
+		return;
+	}
+
+	value = webkit_javascript_result_get_js_value(js_res);
+	if (jsc_value_is_string(value)) {
+		exception = jsc_context_get_exception(
+			jsc_value_get_context(value)
+		);
+		if (exception) {
+			fprintf(
+				stderr,
+				"Error running find: %s",
+				jsc_exception_get_message(exception)
+			);
+		} else {
+			pagetext = jsc_value_to_string(value);
+		}
+	} else {
+		fprintf(stderr, "Find returned unexpected value.\n");
+	}
+	webkit_javascript_result_unref(js_res);
+}
+
 
 WebKitCookieAcceptPolicy
 cookiepolicy_get(void)

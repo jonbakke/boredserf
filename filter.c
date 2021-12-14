@@ -5,8 +5,8 @@
 #include <X11/X.h>
 
 #include "boredserf.h"
+#include "common.h"
 #include "filter.h"
-#include "messages.h"
 
 char *filterrulesjson;
 FilterRule *filterrules;
@@ -730,16 +730,6 @@ filter_setresourcenames(int types, char **names)
 	p[0] = 0;
 
 	*names = strdup(text);
-}
-
-void
-_ifnotnullfreeandnull(void **ptr)
-{
-	nullguard(ptr);
-	if (NULL == *ptr)
-		return;
-	free(*ptr);
-	*ptr = NULL;
 }
 
 void

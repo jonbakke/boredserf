@@ -2,6 +2,7 @@
 #define BOREDSERF_H
 
 #include <gdk/gdkx.h>
+#include <semaphore.h>
 
 enum { AtomFind, AtomGo, AtomUri, AtomUTF8, AtomLast };
 
@@ -131,6 +132,8 @@ const char *getatom(Client *c, int a);
 void updatetitle(Client *c);
 void gettogglestats(Client *c);
 void getpagestats(Client *c);
+void getpagetext(Client *c);
+void getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data);
 WebKitCookieAcceptPolicy cookiepolicy_get(void);
 char cookiepolicy_set(const WebKitCookieAcceptPolicy p);
 void seturiparameters(Client *c, const char *uri, ParamName *params);
@@ -222,6 +225,7 @@ void clickexternplayer(Client *c, const Arg *a, WebKitHitTestResult *h);
 extern char winid[64];
 extern char togglestats[11];
 extern char pagestats[2];
+extern char *pagetext;
 extern Atom atoms[AtomLast];
 extern Window embed;
 extern int showxid;
@@ -236,6 +240,7 @@ extern Parameter *curconfig;
 extern int modparams[ParameterLast];
 extern int spair[2];
 extern char *argv0;
+extern sem_t *getpagetext_sem;
 
 extern ParamName loadtransient[];
 extern ParamName loadcommitted[];
