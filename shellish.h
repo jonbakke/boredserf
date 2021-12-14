@@ -23,11 +23,11 @@
 #ifndef SHELLISH_H
 #define SHELLISH_H
 
+extern char winid[];
+extern char **environ;
+
 char* sh_expand(char *str);
 char* filetostr(char *filename);
-char* cmd(const char *input, const char *command);
-char* cmd_abs(const char *input, const char **cmd_array);
-
-extern char **environ;
+char* cmd(const char *input, const char *command[]);
 
 #endif /* SHELLISH_H */

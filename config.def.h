@@ -11,8 +11,16 @@ char *filterdir      = "~/.config/boredserf/filters/";
 char *histfile       = "~/.config/boredserf/histfile";
 
 /* Utilities for interaction */
-const char selector_go[]   = "dmenu -p Go:";
-const char selector_find[] = "dmenu -p Find:";
+const char *selector_go[] = {
+	"/usr/bin/dmenu",
+	"dmenu", "-p", "Go:", "-w", winid,
+	NULL,
+};
+const char *selector_find[] = {
+	"/usr/bin/dmenu",
+	"dmenu", "-p", "Find:", "-w", winid,
+	NULL
+};
 
 /* Webkit default features */
 /* Highest priority value will be used.

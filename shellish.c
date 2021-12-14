@@ -11,20 +11,14 @@
 char*
 sh_expand(char *str)
 {
-	char *result;
-	char *command;
-	int len;
+	const char *command[] = {
+		"/bin/sh",
+		"sh", "-c", "echo", str,
+		NULL
+	};
 
 	nullguard(str, NULL);
-
-	command = malloc(strlen(str) + 6);
-	command[0] = 0;
-	strcat(command, "echo ");
-	strcat(command, str);
-
-	result = cmd(NULL, command);
-	free(command);
-	return result;
+	return cmd(NULL, command);
 }
 
 char*
@@ -59,26 +53,7 @@ filetostr(char *filename)
 }
 
 char*
-cmd(const char *input, const char *command)
-{
-	const char *cmd_array[5] = { "/bin/sh", "sh", "-c", command, NULL };
-	char *result;
-	int len = 0;
-
-	nullguard(command, NULL);
-
-	result = cmd_abs(input, cmd_array);
-	if (NULL != result) {
-		len = strlen(result);
-		if ('\n' == result[len - 1])
-			result[len - 1] = 0;
-		return result;
-	}
-	return NULL;
-}
-
-char*
-cmd_abs(const char *input, const char **cmd_array)
+cmd(const char *input, const char *command[])
 {
 	char *buf;
 	char *result;
@@ -89,9 +64,9 @@ cmd_abs(const char *input, const char **cmd_array)
 	int retsz = 0;
 	int bufpos;
 
-	nullguard(cmd_array, NULL);
-	nullguard(cmd_array[0], NULL);
-	nullguard(cmd_array[1], NULL);
+	nullguard(command, NULL);
+	nullguard(command[0], NULL);
+	nullguard(command[1], NULL);
 
 	if (0 > pipe(cmdpipe) || 0 > pipe(retpipe))
 		err("Could not create pipe.", NULL);
@@ -105,7 +80,7 @@ cmd_abs(const char *input, const char **cmd_array)
 		close(cmdpipe[0]);
 		close(retpipe[1]);
 		close(2);
-		execv(cmd_array[0], (char * const *)&cmd_array[1]);
+		execv(command[0], (char * const *)&command[1]);
 	}
 
 	close(cmdpipe[0]);
