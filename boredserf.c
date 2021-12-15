@@ -1738,6 +1738,7 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		 */
 		runscript(c);
 		filter_stripper(c, uri);
+		getpagetext(c);
 		break;
 	}
 	updatetitle(c);
@@ -2104,14 +2105,34 @@ i_seturi(Client *c, const Arg *a)
 void
 i_find(Client *c, const Arg *a)
 {
+	const char *cmd_words[] = {
+		"/bin/sh", "sh", "-c",
+		"tr -s '[:blank:]' '\n'"
+			"| sed /^[[:blank:]]*$/d"
+			"| sort"
+			"| uniq",
+		NULL
+	};
+	char *words = NULL;
+	char *result = NULL;
+
 	nullguard(c);
 	updatewinid(c);
 
-	char *input = cmd(getatom(c, AtomFind), selector_find);
-	if (NULL != input) {
-		setatom(c, AtomFind, input);
-		free(input);
+	if (NULL == pagetext)
+		return;
+
+	if(!(words = cmd(pagetext, cmd_words)))
+		return;
+
+	result = cmd(words, selector_find);
+	if (result) {
+		if ('\n' == result[strlen(result) - 1])
+			result[strlen(result) - 1] = 0;
+		setatom(c, AtomFind, result);
+		free(result);
 	}
+	freeandnull(words);
 }
 
 void
