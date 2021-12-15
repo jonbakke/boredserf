@@ -436,11 +436,25 @@ loaduri(Client *c, const Arg *a)
 	g_free(url);
 }
 
+void
+updateenv(Client *c)
+{
+	getpagetext(c);
+	getpagetitle(c);
+	getpagelinks(c);
+	getpagescripts(c);
+	getpagestyles(c);
+	getpageimages(c);
+	setenv("BS_URI", geturi(c), 1);
+	if (NULL != histfile)
+		setenv("BS_HISTFILE", histfile, 1);
+	filter_stripper(c, getenv("BS_URI"));
+}
+
 const char *
 geturi(Client *c)
 {
 	const char *uri;
-
 	if (!(uri = webkit_web_view_get_uri(c->view)))
 		uri = "about:blank";
 	return uri;
@@ -559,26 +573,26 @@ getpagestats(Client *c)
 }
 
 void
-getpagetext(Client *c)
+getwkjs(Client *c, char *script, WebKit_JavaScript_cb cb)
 {
-	nullguard(c);
-	freeandnull(pagetext);
+	nullguard(script);
 	webkit_web_view_run_javascript(
 		c->view,
-		"document.body.innerText",
+		script,
 		NULL,
-		getpagetext_cb,
+		cb,
 		NULL
 	);
 }
 
-void
-getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
+char*
+getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 {
 	WebKitJavascriptResult *js_res;
 	JSCValue *value;
 	JSCException *exception;
 	GError *error = NULL;
+	char *result = NULL;
 
 	js_res = webkit_web_view_run_javascript_finish(
 		WEBKIT_WEB_VIEW(source),
@@ -586,13 +600,19 @@ getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
 		&error
 	);
 	if (NULL == js_res) {
-		nullguard(error);
-		fprintf(stderr, "Error running find: %s", error->message);
+		nullguard(error, NULL);
+		fprintf(
+			stderr,
+			"Error running JavaScript: %s\n",
+			error->message
+		);
 		g_error_free(error);
-		return;
+		return result;
 	}
 
 	value = webkit_javascript_result_get_js_value(js_res);
+	if (jsc_value_is_undefined(value) || jsc_value_is_null(value))
+		return NULL;
 	if (jsc_value_is_string(value)) {
 		exception = jsc_context_get_exception(
 			jsc_value_get_context(value)
@@ -600,18 +620,178 @@ getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
 		if (exception) {
 			fprintf(
 				stderr,
-				"Error running find: %s",
+				"Error running WebKit JavaScript: %s\n",
 				jsc_exception_get_message(exception)
 			);
 		} else {
-			pagetext = jsc_value_to_string(value);
+			result = jsc_value_to_string(value);
 		}
 	} else {
-		fprintf(stderr, "Find returned unexpected value.\n");
+		fprintf(
+			stderr,
+			"WebKit JavaScript returned unexpected value.\n"
+		);
 	}
 	webkit_javascript_result_unref(js_res);
+	return result;
 }
 
+void
+setenv_page(char *name, char *value)
+{
+	nullguard(name);
+	if (NULL == value) {
+		unsetenv(name);
+		return;
+	}
+	setenv(name, value, 1);
+	free(value);
+}
+
+void
+getpagetext(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.body.innerText", getpagetext_cb);
+}
+
+void
+getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	const char *clean[] = {
+		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
+		NULL
+	};
+	char name[] = "BS_TEXT";
+	setenv_page(name, getwkjs_guard(source, res, data));
+	setenv_page(name, cmd(getenv(name), clean));
+}
+
+void
+getpagetitle(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.title", getpagetitle_cb);
+}
+
+void
+getpagetitle_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	setenv_page("BS_TITLE", getwkjs_guard(source, res, data));
+}
+
+void
+getpagelinks(Client *c)
+{
+	char *script = ""
+		"var list = document.links;"
+		"var max = list.length;"
+		"var result = \"\";"
+		"var i;"
+		"for (i = 0; i < max; i++) {"
+		"    result = result + list[i].href + \"\\n\";"
+		"}";
+
+	nullguard(c);
+	getwkjs(c, script, getpagelinks_cb);
+}
+
+void
+getpagelinks_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	const char *clean[] = {
+		"/bin/sh", "sh", "-c", "uniq",
+		NULL
+	};
+	char name[] = "BS_LINKS";
+	setenv_page(name, getwkjs_guard(source, res, data));
+	setenv_page(name, cmd(getenv(name), clean));
+}
+
+void
+getpagescripts(Client *c)
+{
+	char *script = ""
+		"var list = document.scripts;"
+		"var max = list.length;"
+		"var result = \"\";"
+		"var i;"
+		"for (i = 0; i < max; i++) {"
+		"    result = result + list[i].src + \"\\n\";"
+		"}";
+
+	nullguard(c);
+	getwkjs(c, script, getpagescripts_cb);
+}
+
+void
+getpagescripts_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	const char *clean[] = {
+		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
+		NULL
+	};
+	char name[] = "BS_SCRIPTS";
+	setenv_page(name, getwkjs_guard(source, res, data));
+	setenv_page(name, cmd(getenv(name), clean));
+}
+
+void
+getpagestyles(Client *c)
+{
+	char *script = ""
+		"var list = document.styleSheets;"
+		"var max = list.length;"
+		"var result = \"\";"
+		"var i;"
+		"for (i = 0; i < max; i++) {"
+		"    if (list[i].href)"
+		"        result = result + list[i].href + \"\\n\";"
+		"}";
+
+	nullguard(c);
+	getwkjs(c, script, getpagestyles_cb);
+}
+
+void
+getpagestyles_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	const char *clean[] = {
+		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
+		NULL
+	};
+	char name[] = "BS_STYLES";
+	setenv_page(name, getwkjs_guard(source, res, data));
+	setenv_page(name, cmd(getenv(name), clean));
+}
+
+void
+getpageimages(Client *c)
+{
+	char *script = ""
+		"var list = document.images;"
+		"var max = list.length;"
+		"var result = \"\";"
+		"var i;"
+		"for (i = 0; i < max; i++) {"
+		"    result = result + list[i].src + \"\\n\";"
+		"}";
+
+	nullguard(c);
+	getwkjs(c, script, getpageimages_cb);
+}
+
+void
+getpageimages_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	const char *clean[] = {
+		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d | uniq",
+		NULL
+	};
+	char name[] = "BS_IMAGES";
+	setenv_page(name, getwkjs_guard(source, res, data));
+	setenv_page(name, cmd(getenv(name), clean));
+}
 
 WebKitCookieAcceptPolicy
 cookiepolicy_get(void)
@@ -987,6 +1167,7 @@ void
 updatewinid(Client *c)
 {
 	snprintf(winid, LENGTH(winid), "%lu", c->xid);
+	setenv("BS_WINID", winid, 1);
 }
 
 void
@@ -1737,8 +1918,7 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		);
 		 */
 		runscript(c);
-		filter_stripper(c, uri);
-		getpagetext(c);
+		updateenv(c);
 		break;
 	}
 	updatetitle(c);
@@ -2092,19 +2272,23 @@ pasteuri(GtkClipboard *clipboard, const char *text, gpointer d)
 void
 i_seturi(Client *c, const Arg *a)
 {
+	char *result;
+	int len;
+
 	nullguard(c);
 	updatewinid(c);
 
-	char *uri = cmd(geturi(c), selector_go);
-	if (NULL != uri) {
-		setatom(c, AtomGo, uri);
-		free(uri);
+	result = cmd(NULL, selector_go);
+	if (NULL != result) {
+		setatom(c, AtomGo, result);
+		free(result);
 	}
 }
 
 void
 i_find(Client *c, const Arg *a)
 {
+	/*
 	const char *cmd_words[] = {
 		"/bin/sh", "sh", "-c",
 		"tr -s '[:blank:]' '\n'"
@@ -2133,6 +2317,7 @@ i_find(Client *c, const Arg *a)
 		free(result);
 	}
 	freeandnull(words);
+	*/
 }
 
 void

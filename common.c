@@ -25,4 +25,3 @@ _ifnotnullfreeandnull(void **ptr)
 	free(*ptr);
 	*ptr = NULL;
 }
-

@@ -12,8 +12,8 @@ char *histfile       = "~/.config/boredserf/histfile";
 
 /* Utilities for interaction */
 const char *selector_go[] = {
-	"/usr/bin/dmenu",
-	"dmenu", "-i", "-p", "Go:", "-w", winid,
+	"/bin/sh", "sh", "-c",
+	"echo $BS_URI | dmenu -p Go: -w $BS_WINID",
 	NULL,
 };
 const char *selector_find[] = {

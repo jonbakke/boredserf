@@ -394,42 +394,6 @@ Any other key returns to the default keymap.
 The content blocker status is provided in four sections: the request URI, if any; the URI navigated to in the browser, or '*' if not limited in this way; and two blocks of status indicators, the first preceded by '1' providing the status of first-party content blocking and the second preceded by '3' providing the status of third-party content blocking.
 .TP
 The same characters are used as described in \fIUsage\fP, above. A capital letter (one of `DCFIVMSRP') indicates that this connection type is explicitly allowed. A lowercase letter (one of `dcfivmsrp') indicates that this connection type is explicitly denied. Any absent character indicates that this connection type is inherited from previous rules, if any.
-.SS Configuration File
-The content blocker, located by default at \fI~/.config/boredserf/filter.rules\fR, can be configured in exactly the same manner as its status indicator is displayed.
-.TP
-The file may have up to one rule per line. Contiguous whitespace is ignored, but whitespace delimits fields. The available fields are:
-.TP
-.B request-uri \fR(optional)
-also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that rules with this field are not visible in \fBboredserf\fR but are still used to block content. Rudimentary regular expressions are allowed, except those including whitespace (although '%20' is not seen as whitespace).
-.TP
-.B browser-uri \fR(required)
-also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBboredserf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit.
-.TP
-.B first-party \fR(required)
-a list of characters in [dcfivmsrpDCFIVMSRP]. As before, lowercase letters block connections, uppercase letters allow them, and absent characters inherit other rules.
-.TP
-.B third-party \fR(required)
-same as \fIfirst-party\fP, above.
-.TP
-Later rules take precedence over earlier rules.
-.TP
-Lines beginning with a '#', optionally preceded by spaces and/or tabs, and lines with less than three or more than four fields, including blank lines, are ignored and may be used for comments.
-.TP
-For example,
-.TP
-.B * 1cfivmsrp 3cfivmsrp
-will block all requests other than for documents, on all webpages.
-.TP
-.B suckless.org 1Is 3
-where the 'I' will let you see the sophisticated imagery on suckless.org, but the lack of an 'I' after '3' means that images from third parties will be blocked due to the previous rule. The 's' will strip inline, script-like content from the main HTML document. Note that the `3' is mandatory even if all rules are to be inherited.
-.TP
-.B puppy * 1IMSR 3IMSR
-will display images and media, which usually require scripts which in turn often use raw-type requests, for requests from any website that includes `puppy' in the request URI; neither the request-uri nor browser-uri fields are limited to domain names. Note, however, that the \fBboredserf\fR interface only sets domain names for the browser-uri and will not present other rules for editing.
-.TP
-.B http://[^/]*suckless\\\\\\\\.org/ * 1dcfivmsrp 3dcfivmsrp
-will block all types of HTTP connections to a URI in a domain that matches 'suckless.org'. In effect, this requires all connections to such servers to be over HTTPS. Note that this is only a request made to the WebKit engine; it does not guarantee that no such connections will be made.
-.TP
-The \fBboredserf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
 .SH ENVIRONMENT
 .B BOREDSERF_USERAGENT
 If this variable is set upon startup, boredserf will use it as the
@@ -442,6 +406,7 @@ If this variable is set and not empty upon startup, boredserf will use it as the
 boredserf will reload the current page on
 .BR SIGHUP .
 .SH SEE ALSO
+.BR boredserf(5),
 .BR dmenu(1),
 .BR xprop(1),
 .BR tabbed(1),

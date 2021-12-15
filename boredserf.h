@@ -114,6 +114,8 @@ typedef struct {
 	regex_t re;
 } SiteSpecific;
 
+typedef void(*WebKit_JavaScript_cb)(GObject *s, GAsyncResult *r, gpointer d);
+
 /* boredserf */
 void usage(void);
 void setup(void);
@@ -126,14 +128,28 @@ const char *getuserhomedir(const char *user);
 const char *getcurrentuserhomedir(void);
 Client *newclient(Client *c);
 void loaduri(Client *c, const Arg *a);
+void updateenv(Client *c);
 const char *geturi(Client *c);
 void setatom(Client *c, int a, const char *v);
 const char *getatom(Client *c, int a);
 void updatetitle(Client *c);
 void gettogglestats(Client *c);
 void getpagestats(Client *c);
+void getwkjs(Client *c, char *script, WebKit_JavaScript_cb cb);
+char* getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data);
+void setenv_page(char *name, char *value);
 void getpagetext(Client *c);
 void getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data);
+void getpagetitle(Client *c);
+void getpagetitle_cb(GObject *source, GAsyncResult *res, gpointer data);
+void getpagelinks(Client *c);
+void getpagelinks_cb(GObject *source, GAsyncResult *res, gpointer data);
+void getpagescripts(Client *c);
+void getpagescripts_cb(GObject *source, GAsyncResult *res, gpointer data);
+void getpagestyles(Client *c);
+void getpagestyles_cb(GObject *source, GAsyncResult *res, gpointer data);
+void getpageimages(Client *c);
+void getpageimages_cb(GObject *source, GAsyncResult *res, gpointer data);
 WebKitCookieAcceptPolicy cookiepolicy_get(void);
 char cookiepolicy_set(const WebKitCookieAcceptPolicy p);
 void seturiparameters(Client *c, const char *uri, ParamName *params);
