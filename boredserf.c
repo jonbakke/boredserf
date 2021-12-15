@@ -2426,7 +2426,7 @@ msgext(Client *c, char type, const Arg *a)
 				type,
 				a->i
 		)) &&
-		sizeof(msg) >= ret
+		sizeof(msg) <= ret
 	) {
 		fprintf(stderr, "boredserf: message too long: %d\n", ret);
 		return;
