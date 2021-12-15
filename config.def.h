@@ -11,11 +11,14 @@ char *filterdir      = "~/.config/boredserf/filters/";
 char *histfile       = "~/.config/boredserf/histfile";
 
 /* Utilities for interaction */
+/* dmenu as location bar (in a shell with environment variables) */
 const char *selector_go[] = {
 	"/bin/sh", "sh", "-c",
 	"echo $BS_URI | dmenu -p Go: -w $BS_WINID",
 	NULL,
 };
+
+/* Finding with dmenu (executed without shell) */
 const char *selector_find[] = {
 	"/usr/bin/dmenu",
 	"dmenu", "-i", "-p", "Find:", "-w", winid,
