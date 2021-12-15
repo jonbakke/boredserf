@@ -65,6 +65,10 @@ install: all
 	sed "s/VERSION/$(VERSION)/g" < boredserf.1 > \
 		$(DESTDIR)$(MANPREFIX)/man1/boredserf.1
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/boredserf.1
+	mkdir -p $(DESTDIR)$(MANPREFIX)/man5
+	sed "s/VERSION/$(VERSION)/g" < boredserf.5 > \
+		$(DESTDIR)$(MANPREFIX)/man5/boredserf.5
+	chmod 644 $(DESTDIR)$(MANPREFIX)/man5/boredserf.5
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/boredserf
