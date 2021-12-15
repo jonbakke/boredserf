@@ -261,7 +261,7 @@ sighup(int unused)
 		reload(c, &a);
 }
 
-char *
+char*
 buildfile(const char *path)
 {
 	char *dname, *bname, *bpath, *fpath;
@@ -323,7 +323,7 @@ getcurrentuserhomedir(void)
 	return pw->pw_dir;
 }
 
-char *
+char*
 buildpath(const char *path)
 {
 	char *apath, *fpath;
@@ -345,7 +345,7 @@ buildpath(const char *path)
 	return fpath;
 }
 
-char *
+char*
 untildepath(const char *path)
 {
 	char *apath, *name, *p;
@@ -367,7 +367,7 @@ untildepath(const char *path)
 	return apath;
 }
 
-Client *
+Client*
 newclient(Client *rc)
 {
 	Client *c;
@@ -451,7 +451,7 @@ updateenv(Client *c)
 	filter_stripper(c, getenv("BS_URI"));
 }
 
-const char *
+const char*
 geturi(Client *c)
 {
 	const char *uri;
@@ -476,7 +476,7 @@ setatom(Client *c, int a, const char *v)
 	XSync(dpy, False);
 }
 
-const char *
+const char*
 getatom(Client *c, int a)
 {
 	static char buf[BUFSIZ];
@@ -1015,7 +1015,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 		reload(c, a);
 }
 
-const char *
+const char*
 getcert(const char *uri)
 {
 	int i;
@@ -1062,7 +1062,7 @@ setcert(Client *c, const char *uri)
 
 }
 
-const char *
+const char*
 getstyle(const char *uri)
 {
 	int i;
@@ -1282,7 +1282,7 @@ cleanup(void)
 	XCloseDisplay(dpy);
 }
 
-WebKitWebView *
+WebKitWebView*
 newview(Client *c, WebKitWebView *rv)
 {
 	WebKitWebView *v;
@@ -1579,7 +1579,7 @@ initwebextensions(WebKitWebContext *wc, Client *c)
 	webkit_web_context_set_web_extensions_directory(wc, WEBEXTDIR);
 }
 
-GtkWidget *
+GtkWidget*
 createview(WebKitWebView *v, WebKitNavigationAction *a, Client *c)
 {
 	Client *n;
@@ -1735,7 +1735,7 @@ showview(WebKitWebView *v, Client *c)
 	setatom(c, AtomUri, "about:blank");
 }
 
-GtkWidget *
+GtkWidget*
 createwindow(Client *c)
 {
 	char *wmstr;
@@ -2238,7 +2238,7 @@ setkeytree(Client *c, const Arg *a)
 		filtercmd(c, &filterkeysarg);
 }
 
-gchar *
+gchar*
 parseuri(const gchar *uri) {
 	guint i;
 
