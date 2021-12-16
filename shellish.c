@@ -55,9 +55,11 @@ filetostr(char *filename)
 char*
 cmd(const char *input, const char *command[])
 {
+	enum { fdstrlen = 32 };
 	char *buf;
 	char *result;
 	char *target;
+	char intstr[fdstrlen] = { 0 };
 	int cmdpipe[2] = { -1 };
 	int retpipe[2] = { -1 };
 	int bufsz = 4096;
@@ -77,9 +79,10 @@ cmd(const char *input, const char *command[])
 		close(retpipe[0]);
 		dup2(cmdpipe[0], 0);
 		dup2(retpipe[1], 1);
-		close(cmdpipe[0]);
-		close(retpipe[1]);
-		close(2);
+		snprintf(intstr, fdstrlen, "%u", cmdpipe[0]);
+		setenv("BS_INPUT", intstr, 1);
+		snprintf(intstr, fdstrlen, "%u", retpipe[1]);
+		setenv("BS_RESULT", intstr, 1);
 		execv(command[0], (char * const *)&command[1]);
 	}
 

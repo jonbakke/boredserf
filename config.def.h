@@ -19,11 +19,30 @@ const char *selector_go[] = {
 };
 
 /* Finding with dmenu (executed without shell) */
-const char *selector_find[] = {
+const char *selector_find_dmenu[] = {
 	"/usr/bin/dmenu",
 	"dmenu", "-i", "-p", "Find:", "-w", winid,
 	NULL
 };
+
+/* Finding with fzf (in st in a shell with incremental previews) */
+/* Note: the shell redirects input and output, so we must read and write
+ *       to the file descriptors provided in $BS_INPUT and $BS_OUTPUT.
+ *       Unfortunately, dash appears to fail with this redirection. */
+const char *selector_find_fzf[] = {
+	"/usr/local/bin/st", "st", "-e", "/usr/bin/bash", "-c",
+	"cat <& \"$BS_INPUT\" "
+	"| fzf --preview='echo \"$BS_TEXT\" \
+		| fmt --width=$FZF_PREVIEW_COLUMNS \
+		| grep --color=always {}' "
+	"| sed /^[[:blank:]]*$/d "
+	">& \"$BS_RESULT\"",
+	NULL
+};
+
+/* Decide which finder to use */
+const char **selector_find = selector_find_fzf;
+
 
 /* Webkit default features */
 /* Highest priority value will be used.
