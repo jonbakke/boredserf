@@ -31,9 +31,9 @@ const char *selector_find_dmenu[] = {
  *       Unfortunately, dash appears to fail with this redirection. */
 const char *selector_find_fzf[] = {
 	"/usr/local/bin/st", "st", "-e", "/usr/bin/bash", "-c",
-	"<& \"$BS_INPUT\" fzf --preview='echo \"$BS_TEXT\" \
+	"<& \"$BS_INPUT\" fzf -i --preview='echo \"$BS_TEXT\" \
 		| fmt --width=$FZF_PREVIEW_COLUMNS \
-		| grep --color=always {}' "
+		| grep -i --color=always {}' "
 	"| sed /^[[:blank:]]*$/d "
 	">& \"$BS_RESULT\"",
 	NULL
