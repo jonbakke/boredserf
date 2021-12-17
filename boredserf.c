@@ -2435,9 +2435,6 @@ i_find(Client *c, const Arg *a)
 	nullguard(c);
 	updatewinid(c);
 
-	const char *runcmd[] = { "/usr/bin/foot", "foot", NULL };
-	cmd(NULL, runcmd);
-
 	if ((result = cmd(NULL, selector_find))) {
 		/* remove any trailing newline */
 		if ('\n' == result[strlen(result) - 1])
