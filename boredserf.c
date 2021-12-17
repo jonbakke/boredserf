@@ -84,7 +84,6 @@ ParamName loadfinished[] = {
 char winid[64];
 char togglestats[11];
 char pagestats[2];
-char *pagetext;
 Atom atoms[AtomLast];
 Window embed;
 int showxid;
@@ -95,6 +94,7 @@ GdkDevice *gdkkb;
 Key *curkeytree;
 char *stylefile;
 const char *useragent;
+char *pagefiles;
 Parameter *curconfig;
 int modparams[ParameterLast];
 int spair[2];
@@ -239,7 +239,7 @@ setup(void)
 		}
 	}
 
-	pagetext = NULL;
+	pagefiles = NULL;
 }
 
 void
@@ -439,16 +439,44 @@ loaduri(Client *c, const Arg *a)
 void
 updateenv(Client *c)
 {
+	static char *uri = NULL;
+
+	/* update once per URI */
+	if (uri && 0 == strcmp(geturi(c), uri)) {
+		return;
+	}
+	if (NULL != uri)
+		free(uri);
+	uri = strdup(geturi(c));
+
+	if (NULL == pagefiles) {
+		int len;
+		int pos = 0;
+		nullguard(cachedir);
+		len = strlen(cachedir) + 12;
+		pagefiles = malloc(len);
+		pagefiles[pos] = 0;
+		strncat(pagefiles, cachedir, len);
+		strncat(pagefiles, "/tmp-XXXXXX", len - strlen(pagefiles));
+		mkdtemp(pagefiles);
+		nullguard(pagefiles);
+		setenv("BS_PAGEFILES", pagefiles, 1);
+	}
+
 	getpagetext(c);
+	getpagehead(c);
+	getpagebody(c);
 	getpagetitle(c);
 	getpagelinks(c);
 	getpagescripts(c);
-	getpagestyles(c);
+	//getpagestyles(c);
 	getpageimages(c);
 	setenv("BS_URI", geturi(c), 1);
 	if (NULL != histfile)
 		setenv("BS_HISTFILE", histfile, 1);
 	filter_stripper(c, getenv("BS_URI"));
+	getpagehead_stripped(c);
+	getpagebody_stripped(c);
 }
 
 const char*
@@ -637,15 +665,28 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 }
 
 void
-setenv_page(char *name, char *value)
+savepagefile(const char *name, const char *contents)
 {
+	char *filename;
+	FILE *file;
+
 	nullguard(name);
-	if (NULL == value) {
-		unsetenv(name);
-		return;
+	nullguard(contents);
+	nullguard(pagefiles);
+
+	filename = malloc(strlen(pagefiles) + strlen(name) + 2);
+	filename[0] = 0;
+	strcat(filename, pagefiles);
+	strcat(filename, "/");
+	strcat(filename, name);
+
+	file = fopen(filename, "w+");
+	if (NULL == file) {
+		free(filename);
+		nullguard(file);
 	}
-	setenv(name, value, 1);
-	free(value);
+	fwrite(contents, 1, strlen(contents), file);
+	fclose(file);
 }
 
 void
@@ -658,13 +699,74 @@ getpagetext(Client *c)
 void
 getpagetext_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
-	const char *clean[] = {
-		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
-		NULL
-	};
-	char name[] = "BS_TEXT";
-	setenv_page(name, getwkjs_guard(source, res, data));
-	setenv_page(name, cmd(getenv(name), clean));
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("page.txt", raw);
+	freeandnull(raw);
+}
+
+void
+getpagehead(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.head.innerHTML", getpagehead_cb);
+}
+
+void
+getpagehead_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("head.html", raw);
+	freeandnull(raw);
+}
+
+void
+getpagehead_stripped(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.head.innerHTML", getpagehead_stripped_cb);
+}
+
+void
+getpagehead_stripped_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("head-stripped.html", raw);
+	freeandnull(raw);
+}
+
+void
+getpagebody(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.body.innerHTML", getpagebody_cb);
+}
+
+void
+getpagebody_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("body.html", raw);
+	freeandnull(raw);
+}
+
+void
+getpagebody_stripped(Client *c)
+{
+	nullguard(c);
+	getwkjs(c, "document.body.innerHTML", getpagebody_stripped_cb);
+}
+
+void
+getpagebody_stripped_cb(GObject *source, GAsyncResult *res, gpointer data)
+{
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("body-stripped.html", raw);
+	freeandnull(raw);
 }
 
 void
@@ -677,7 +779,10 @@ getpagetitle(Client *c)
 void
 getpagetitle_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
-	setenv_page("BS_TITLE", getwkjs_guard(source, res, data));
+	char *raw = NULL;
+	raw = getwkjs_guard(source, res, data);
+	savepagefile("title.txt", raw);
+	freeandnull(raw);
 }
 
 void
@@ -699,13 +804,18 @@ getpagelinks(Client *c)
 void
 getpagelinks_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
+	char *raw = NULL;
+	char *processed = NULL;
 	const char *clean[] = {
 		"/bin/sh", "sh", "-c", "uniq",
 		NULL
 	};
-	char name[] = "BS_LINKS";
-	setenv_page(name, getwkjs_guard(source, res, data));
-	setenv_page(name, cmd(getenv(name), clean));
+
+	raw = getwkjs_guard(source, res, data);
+	processed = cmd(raw, clean);
+	savepagefile("links.txt", processed);
+	freeandnull(raw);
+	freeandnull(processed);
 }
 
 void
@@ -727,13 +837,18 @@ getpagescripts(Client *c)
 void
 getpagescripts_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
+	char *raw = NULL;
+	char *processed = NULL;
 	const char *clean[] = {
 		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
 		NULL
 	};
-	char name[] = "BS_SCRIPTS";
-	setenv_page(name, getwkjs_guard(source, res, data));
-	setenv_page(name, cmd(getenv(name), clean));
+
+	raw = getwkjs_guard(source, res, data);
+	processed = cmd(raw, clean);
+	savepagefile("scripts.txt", processed);
+	freeandnull(raw);
+	freeandnull(processed);
 }
 
 void
@@ -756,13 +871,18 @@ getpagestyles(Client *c)
 void
 getpagestyles_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
+	char *raw = NULL;
+	char *processed = NULL;
 	const char *clean[] = {
 		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d",
 		NULL
 	};
-	char name[] = "BS_STYLES";
-	setenv_page(name, getwkjs_guard(source, res, data));
-	setenv_page(name, cmd(getenv(name), clean));
+
+	raw = getwkjs_guard(source, res, data);
+	processed = cmd(raw, clean);
+	savepagefile("styles.txt", processed);
+	freeandnull(raw);
+	freeandnull(processed);
 }
 
 void
@@ -784,13 +904,18 @@ getpageimages(Client *c)
 void
 getpageimages_cb(GObject *source, GAsyncResult *res, gpointer data)
 {
+	char *raw = NULL;
+	char *processed = NULL;
 	const char *clean[] = {
 		"/bin/sh", "sh", "-c", "sed /^[[:blank:]]*$/d | uniq",
 		NULL
 	};
-	char name[] = "BS_IMAGES";
-	setenv_page(name, getwkjs_guard(source, res, data));
-	setenv_page(name, cmd(getenv(name), clean));
+
+	raw = getwkjs_guard(source, res, data);
+	processed = cmd(raw, clean);
+	savepagefile("images.txt", processed);
+	freeandnull(raw);
+	freeandnull(processed);
 }
 
 WebKitCookieAcceptPolicy
@@ -1272,6 +1397,22 @@ cleanup(void)
 {
 	while (clients)
 		destroyclient(clients);
+
+	if (NULL != pagefiles) {
+		char *cmd_pre = "rm -rf ";
+		char *command = malloc(
+			strlen(cmd_pre) + strlen(pagefiles) + 1
+		);
+		command[0] = 0;
+		strcat(command, cmd_pre);
+		strcat(command, pagefiles);
+		const char *rmrf[] = {
+			"/bin/sh", "sh", "-c", command,
+			NULL
+		};
+		cmd(NULL, rmrf);
+		free(command);
+	}
 
 	close(spair[0]);
 	close(spair[1]);
@@ -2290,18 +2431,14 @@ i_find(Client *c, const Arg *a)
 {
 	char *result = NULL;
 	char *words = NULL;
-	const char *clean[] = {
-		"/bin/sh", "sh", "-c",
-		"echo \"$BS_TEXT\" | tr ' ' '\n' | sort | uniq",
-		NULL
-	};
 
 	nullguard(c);
 	updatewinid(c);
 
-	words = cmd(NULL, clean);
+	const char *runcmd[] = { "/usr/bin/foot", "foot", NULL };
+	cmd(NULL, runcmd);
 
-	if ((result = cmd(words, selector_find))) {
+	if ((result = cmd(NULL, selector_find))) {
 		/* remove any trailing newline */
 		if ('\n' == result[strlen(result) - 1])
 			result[strlen(result) - 1] = 0;
@@ -2700,6 +2837,8 @@ main(int argc, char *argv[])
 		arg.v = "about:blank";
 
 	setup();
+	atexit(cleanup);
+
 	c = newclient(NULL);
 	filter_read();
 	filter_apply(c);
@@ -2709,7 +2848,6 @@ main(int argc, char *argv[])
 	updatetitle(c);
 
 	gtk_main();
-	cleanup();
 
 	return 0;
 }

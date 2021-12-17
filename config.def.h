@@ -14,7 +14,7 @@ char *histfile       = "~/.config/boredserf/histfile";
 /* dmenu as location bar (in a shell with environment variables) */
 const char *selector_go[] = {
 	"/bin/sh", "sh", "-c",
-	"echo $BS_URI | dmenu -p Go: -w $BS_WINID",
+	"dmenu -p Go: -w $BS_WINID",
 	NULL,
 };
 
@@ -31,9 +31,11 @@ const char *selector_find_dmenu[] = {
  *       Unfortunately, dash appears to fail with this redirection. */
 const char *selector_find_fzf[] = {
 	"/usr/local/bin/st", "st", "-e", "/usr/bin/bash", "-c",
-	"<& \"$BS_INPUT\" fzf -i --preview='echo \"$BS_TEXT\" \
-		| fmt --width=$FZF_PREVIEW_COLUMNS \
-		| grep -i --color=always {}' "
+	"< \"${BS_PAGEFILES}/page.txt\" tr '[:blank:]' '\n' "
+	"| sort "
+	"| uniq "
+	"| fzf -i --preview='<\"${BS_PAGEFILES}/page.txt\" fmt \
+		--width=$FZF_PREVIEW_COLUMNS | grep -i --color=always {}' "
 	"| sed /^[[:blank:]]*$/d "
 	">& \"$BS_RESULT\"",
 	NULL
