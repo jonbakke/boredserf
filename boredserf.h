@@ -1,8 +1,9 @@
 #ifndef BOREDSERF_H
 #define BOREDSERF_H
 
+#include <regex.h>
 #include <gdk/gdkx.h>
-#include <semaphore.h>
+#include <webkit2/webkit2.h>
 
 enum { AtomFind, AtomGo, AtomUri, AtomUTF8, AtomLast };
 
@@ -75,6 +76,8 @@ typedef struct Client {
 	GTlsCertificateFlags tlserr;
 	Window xid;
 	guint64 pageid;
+	gulong keyhandler;
+	int board_flags;
 	int progress, fullscreen, https, insecure, errorpage;
 	const char *title, *overtitle, *targeturi;
 	const char *needle;
@@ -187,7 +190,7 @@ GdkFilterReturn processx(GdkXEvent *xevent, GdkEvent *event,
 gboolean winevent(GtkWidget *w, GdkEvent *e, Client *c);
 gboolean readsock(GIOChannel *s, GIOCondition ioc, gpointer unused);
 void showview(WebKitWebView *v, Client *c);
-GtkWidget *createwindow(Client *c);
+void createwindow(Client *c);
 gboolean loadfailedtls(WebKitWebView *v, gchar *uri,
                        GTlsCertificate *cert,
                        GTlsCertificateFlags err, Client *c);
@@ -238,6 +241,7 @@ void toggleinspector(Client *c, const Arg *a);
 gboolean runkey(Key key, Client *c);
 void resetkeytree(Client *c);
 void setkeytree(Client *c, const Arg *a);
+void replacekeytree(Client *c, void *cb);
 void find(Client *c, const Arg *a);
 void toggle(Client *c, const Arg *a);
 

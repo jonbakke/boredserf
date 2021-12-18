@@ -9,7 +9,6 @@
 #include <libgen.h>
 #include <limits.h>
 #include <pwd.h>
-#include <regex.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,11 +23,11 @@
 #include <gtk/gtkx.h>
 #include <gcr/gcr.h>
 #include <JavaScriptCore/JavaScript.h>
-#include <webkit2/webkit2.h>
 #include <X11/X.h>
 #include <X11/Xatom.h>
 
 #include "arg.h"
+#include "board.h"
 #include "boredserf.h"
 #include "common.h"
 #include "filter.h"
@@ -380,6 +379,7 @@ newclient(Client *rc)
 
 	c->progress = 100;
 	c->view = newview(c, rc ? rc->view : NULL);
+	c->board_flags = -1;
 
 	return c;
 }
@@ -670,9 +670,9 @@ savepagefile(const char *name, const char *contents)
 	char *filename;
 	FILE *file;
 
-	nullguard(name);
-	nullguard(contents);
-	nullguard(pagefiles);
+	/* Fail silently if anything is NULL */
+	if (!name || !contents || !pagefiles)
+		return;
 
 	filename = malloc(strlen(pagefiles) + strlen(name) + 2);
 	filename[0] = 0;
@@ -1842,7 +1842,7 @@ showview(WebKitWebView *v, Client *c)
 	c->inspector = webkit_web_view_get_inspector(c->view);
 
 	c->pageid = webkit_web_view_get_page_id(c->view);
-	c->win = createwindow(c);
+	createwindow(c);
 
 	gtk_container_add(GTK_CONTAINER(c->win), GTK_WIDGET(c->view));
 	gtk_widget_show_all(c->win);
@@ -1876,7 +1876,7 @@ showview(WebKitWebView *v, Client *c)
 	setatom(c, AtomUri, "about:blank");
 }
 
-GtkWidget*
+void
 createwindow(Client *c)
 {
 	char *wmstr;
@@ -1902,6 +1902,8 @@ createwindow(Client *c)
 		);
 	}
 
+	c->win = w;
+
 	g_signal_connect(
 		G_OBJECT(w),
 		"destroy",
@@ -1911,12 +1913,6 @@ createwindow(Client *c)
 	g_signal_connect(
 		G_OBJECT(w),
 		"enter-notify-event",
-		G_CALLBACK(winevent),
-		c
-	);
-	g_signal_connect(
-		G_OBJECT(w),
-		"key-press-event",
 		G_CALLBACK(winevent),
 		c
 	);
@@ -1933,7 +1929,7 @@ createwindow(Client *c)
 		c
 	);
 
-	return w;
+	replacekeytree(c, winevent);
 }
 
 gboolean
@@ -2377,6 +2373,53 @@ setkeytree(Client *c, const Arg *a)
 	/* keytree initialization */
 	if (curkeytree == filterkeys)
 		filtercmd(c, &filterkeysarg);
+}
+
+void
+replacekeytree(Client *c, void *cb)
+{
+	enum { defsz = 8 };
+	static gulong *ids = NULL;
+	static int idsz = 0;
+	static int idpos = 0;
+	int i;
+
+	if (NULL == ids || idpos >= idsz) {
+		if (defsz > idsz)
+			idsz = defsz;
+		else
+			idsz *= 2;
+		ids = realloc(ids, idsz * sizeof(gulong));
+		if (!idpos)
+			ids[0] = 0;
+		for (i = idpos + 1; i < idsz; ++i)
+			ids[i] = 0;
+	}
+
+	if (NULL == cb) {
+		if (0 < idpos) {
+			g_signal_handler_disconnect(
+				G_OBJECT(c->win),
+				c->keyhandler
+			);
+			c->keyhandler = ids[--idpos];
+			g_signal_handler_unblock(
+				G_OBJECT(c->win),
+				c->keyhandler
+			);
+		}
+		return;
+	}
+
+	if (ids[idpos])
+		g_signal_handler_block(G_OBJECT(c->win), ids[idpos]);
+	ids[++idpos] = g_signal_connect(
+		G_OBJECT(c->win),
+		"key-press-event",
+		G_CALLBACK(cb),
+		c
+	);
+	c->keyhandler = ids[idpos];
 }
 
 gchar*

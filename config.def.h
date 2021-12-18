@@ -10,13 +10,16 @@ char *filterrulefile = "~/.config/boredserf/filter.rules";
 char *filterdir      = "~/.config/boredserf/filters/";
 char *histfile       = "~/.config/boredserf/histfile";
 
-/* Utilities for interaction */
+/* External utilities for interaction */
 /* dmenu as location bar (in a shell with environment variables) */
 const char *selector_go[] = {
 	"/bin/sh", "sh", "-c",
 	"dmenu -p Go: -w $BS_WINID",
 	NULL,
 };
+
+/* Find options
+ * note that Control-F is bound to an internal find command by default. */
 
 /* Finding with dmenu (executed without shell) */
 const char *selector_find_dmenu[] = {
@@ -41,7 +44,7 @@ const char *selector_find_fzf[] = {
 	NULL
 };
 
-/* Decide which finder to use */
+/* Decide which external finder to use */
 const char **selector_find = selector_find_fzf;
 
 
@@ -195,7 +198,8 @@ Key filterkeys[] = {
 Key keys[] = {
 	/* modifier              keyval          function    arg */
 	{ MODKEY,                GDK_KEY_g,      i_seturi,   { 0 } },
-	{ MODKEY,                GDK_KEY_f,      i_find,     { 0 } },
+	{ MODKEY,                GDK_KEY_f,      board,     { .i = boardtype_find } },
+	//{ MODKEY,                GDK_KEY_f,      i_find,     { 0 } },
 	{ MODKEY,                GDK_KEY_slash,  i_find,     { 0 } },
 	{ 0,                     GDK_KEY_Escape, stop,       { 0 } },
 	{ MODKEY,                GDK_KEY_c,      stop,       { 0 } },
