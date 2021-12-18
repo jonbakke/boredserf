@@ -7,7 +7,7 @@ enum { maxlen = 512 };
 void
 board(Client *c, const Arg *a)
 {
-	if (0 > c->board_flags && a && 0 >= a->i) {
+	if (0 > c->board_flags && a) {
 		c->board_flags = 0;
 		c->board_flags |= 1 << a->i;
 	}
@@ -69,10 +69,12 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 			break;
 
 		case GDK_KEY_Return:
-			/* exit search interface */
+			/* exit board interface */
 			replacekeytree(c, NULL);
 			c->overtitle = c->targeturi;
 			updatetitle(c);
+			if (c->board_flags & 1 << boardtype_goto)
+				setatom(c, AtomGo, input);
 			return TRUE;
 
 		case GDK_KEY_BackSpace: /* fall through */

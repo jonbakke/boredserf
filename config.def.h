@@ -11,6 +11,9 @@ char *filterdir      = "~/.config/boredserf/filters/";
 char *histfile       = "~/.config/boredserf/histfile";
 
 /* External utilities for interaction */
+/* Note that these are not in the default keymap, but can be enabled
+ * by commenting and uncommenting appropriate lines below. */
+
 /* dmenu as location bar (in a shell with environment variables) */
 const char *selector_go[] = {
 	"/bin/sh", "sh", "-c",
@@ -18,8 +21,7 @@ const char *selector_go[] = {
 	NULL,
 };
 
-/* Find options
- * note that Control-F is bound to an internal find command by default. */
+/* Find options */
 
 /* Finding with dmenu (executed without shell) */
 const char *selector_find_dmenu[] = {
@@ -197,8 +199,9 @@ Key filterkeys[] = {
 /* default key bindings */
 Key keys[] = {
 	/* modifier              keyval          function    arg */
-	{ MODKEY,                GDK_KEY_g,      i_seturi,   { 0 } },
 	{ MODKEY,                GDK_KEY_f,      board,     { .i = boardtype_find } },
+	{ MODKEY,                GDK_KEY_g,      board,     { .i = boardtype_goto } },
+	//{ MODKEY,                GDK_KEY_g,      i_seturi,   { 0 } },
 	//{ MODKEY,                GDK_KEY_f,      i_find,     { 0 } },
 	{ MODKEY,                GDK_KEY_slash,  i_find,     { 0 } },
 	{ 0,                     GDK_KEY_Escape, stop,       { 0 } },
