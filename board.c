@@ -65,16 +65,27 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 		/* build search string */
 		switch (e->key.keyval) {
 		case GDK_KEY_Escape: /* fall through */
+			if (c->board_flags & 1 << boardtype_find) {
+				setatom(c, AtomFind, "");
+				webkit_find_controller_search_finish(
+					c->finder
+				);
+			}
 			c->board_flags = -1;
 			break;
 
 		case GDK_KEY_Return:
 			/* exit board interface */
-			replacekeytree(c, NULL);
 			c->overtitle = c->targeturi;
 			updatetitle(c);
-			if (c->board_flags & 1 << boardtype_goto)
+
+			/* goto resets upon commit */
+			if (c->board_flags & 1 << boardtype_goto) {
 				setatom(c, AtomGo, input);
+				c->board_flags = -1;
+				break;
+			}
+			replacekeytree(c, NULL);
 			return TRUE;
 
 		case GDK_KEY_BackSpace: /* fall through */
@@ -96,8 +107,6 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 
 	/* reset entire search */
 	if (-1 == c->board_flags) {
-		setatom(c, AtomFind, "");
-		webkit_find_controller_search_finish(c->finder);
 		pos = 0;
 		input[pos] = 0;
 		replacekeytree(c, NULL);

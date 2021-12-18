@@ -8,7 +8,8 @@ char *cachedir       = "~/.config/boredserf/cache/";
 char *cookiefile     = "~/.config/boredserf/cookies.txt";
 char *filterrulefile = "~/.config/boredserf/filter.rules";
 char *filterdir      = "~/.config/boredserf/filters/";
-char *histfile       = "~/.config/boredserf/histfile";
+char *visitedfile    = "~/.config/boredserf/visited";
+char *marksfile      = "~/.config/boredserf/marks";
 
 /* External utilities for interaction */
 /* Note that these are not in the default keymap, but can be enabled
@@ -91,12 +92,6 @@ Parameter defconfig[ParameterLast] = {
 	[Style]               =       { { .i = 1 },     },
 	[WebGL]               =       { { .i = 0 },     },
 	[ZoomLevel]           =       { { .f = 1.0 },   },
-};
-
-SearchEngine searchengines[] = {
-	{ "d", "https://duckduckgo.com/lite/?q=%s" },
-	{ "s", "https://www.startpage.com/sp/search?query=%s" },
-	{ "w", "https://en.wikipedia.org/wiki/Special:Search/%s" },
 };
 
 UriParameters uriparams[] = {

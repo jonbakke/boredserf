@@ -103,7 +103,8 @@ typedef struct {
 typedef struct {
 	char *token;
 	char *uri;
-} SearchEngine;
+	int isquery;
+} BS_Mark;
 
 typedef struct {
 	const char *uri;
@@ -217,7 +218,8 @@ void webprocessterminated(WebKitWebView *v,
                           Client *c);
 void closeview(WebKitWebView *v, Client *c);
 void destroywin(GtkWidget* w, Client *c);
-gchar *parseuri(const gchar *uri);
+char* testmarks(const char *uri);
+gchar* parseuri(const gchar *uri);
 
 /* Hotkeys */
 /* interactive */

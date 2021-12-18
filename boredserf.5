@@ -1,6 +1,8 @@
 .TH BOREDSERF 5 boredserf\-VERSION
 .SH NAME
 boredserf \- simple webkit-based browser
+.SH OVERVIEW
+This manual page covers compile-time configuration, content blocker configuration, and the marks file format.
 .SH COMPILE-TIME CONFIGURATION
 Most \fBboredserf\fR configuration occurs in the \fIconfig.h\fR file before compilation. Loosely speaking, there are five sections: paths, utilities, parameters, custom code, and keymaps.
 .TP
@@ -79,3 +81,20 @@ will display images and media, which usually require scripts which in turn often
 will block all types of HTTP connections to a URI in a domain that matches 'suckless.org'. In effect, this requires all connections to such servers to be over HTTPS. Note that this is only a request made to the WebKit engine; it does not guarantee that no such connections will be made.
 .TP
 The \fBboredserf\fP content blocker uses the WebKit tool of the same name. See WebKit documentation for more details on what is possible.
+.SH MARKS FILE FORMAT
+The marks file designates both saved searches and bookmarks. Located at the path in \fImarksfile\fR, which is ~/.config/boredserf/marks by default, each line of the marks file designates a mark. Each mark contains three fields that are delimited by colons: a URI scheme, a short name, and a full URI. A mark looks like one of these:
+.TP
+    mark:name1?:https://example.com/?q=%s
+.TP
+    mark:name2:https://example.com/
+.TP
+.B URI scheme
+Each mark begins with its scheme name -- `mark' -- followed by a single colon.
+.TP
+.B Short name
+Each mark then has a name, an optional question mark (`?'), and another single colon. The names must be unique; later duplicates will be ignored, and the presence of a question mark does not distinguish two marks with otherwise identical names. A name must not contain a space, tab, newline, or nul (\\000) character.
+.TP
+.B Full URI
+The remainder of the line -- until a newline, nul (\\000), or the end of the file -- is treated as a URI that the mark points to.
+.TP
+If the short name ends with a question mark, then the full URI must include one instance of the substitution sequence percent-s (`%s'). This sequence will be replaced by any words that follow the mark's short name. Spaces are allowed.

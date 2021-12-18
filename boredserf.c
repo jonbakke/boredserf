@@ -138,12 +138,13 @@ setup(void)
 	curconfig = defconfig;
 
 	/* dirs and files */
-	cookiefile = buildfile(cookiefile);
-	scriptfile = buildfile(scriptfile);
-	histfile   = buildfile(histfile);
+	cookiefile     = buildfile(cookiefile);
+	scriptfile     = buildfile(scriptfile);
+	visitedfile    = buildfile(visitedfile);
+	marksfile      = buildfile(marksfile);
 	filterrulefile = buildfile(filterrulefile);
-	filterdir  = buildpath(filterdir);
-	certdir    = buildpath(certdir);
+	filterdir      = buildpath(filterdir);
+	certdir        = buildpath(certdir);
 	if (curconfig[Ephemeral].val.i)
 		cachedir = NULL;
 	else
@@ -322,6 +323,7 @@ getcurrentuserhomedir(void)
 	return pw->pw_dir;
 }
 
+/* returns malloc'd string */
 char*
 buildpath(const char *path)
 {
@@ -344,6 +346,7 @@ buildpath(const char *path)
 	return fpath;
 }
 
+/* returns malloc'd string */
 char*
 untildepath(const char *path)
 {
@@ -390,7 +393,7 @@ loaduri(Client *c, const Arg *a)
 	struct stat st;
 	char *url, *path, *apath;
 	const char *uri = a->v;
-	FILE *hist;
+	FILE *visited;
 
 	if (g_strcmp0(uri, "") == 0)
 		return;
@@ -411,8 +414,7 @@ loaduri(Client *c, const Arg *a)
 			url = g_strdup_printf("file://%s", path);
 			free(path);
 		} else {
-			url = g_strdup_printf("http://%s", uri);
-			url = parseuri(uri);
+			url = testmarks(uri);
 		}
 		if (apath != uri)
 			free(apath);
@@ -427,10 +429,10 @@ loaduri(Client *c, const Arg *a)
 		updatetitle(c);
 	}
 
-	if (histfile && (hist = fopen(histfile, "a+"))) {
-		fwrite(url, 1, strlen(url), hist);
-		fwrite("\n", 1, 1, hist);
-		fclose(hist);
+	if (visitedfile && (visited = fopen(visitedfile, "a+"))) {
+		fwrite(url, 1, strlen(url), visited);
+		fwrite("\n", 1, 1, visited);
+		fclose(visited);
 	}
 	resetkeytree(c);
 	g_free(url);
@@ -472,8 +474,8 @@ updateenv(Client *c)
 	//getpagestyles(c);
 	getpageimages(c);
 	setenv("BS_URI", geturi(c), 1);
-	if (NULL != histfile)
-		setenv("BS_HISTFILE", histfile, 1);
+	if (NULL != visitedfile)
+		setenv("BS_VISITED", visitedfile, 1);
 	filter_stripper(c, getenv("BS_URI"));
 	getpagehead_stripped(c);
 	getpagebody_stripped(c);
@@ -2422,6 +2424,151 @@ replacekeytree(Client *c, void *cb)
 	c->keyhandler = ids[idpos];
 }
 
+char*
+testmarks(const char *uri)
+{
+	enum { linemax = 1024 };
+	enum { markszdef = 32 };
+	static BS_Mark *mark = NULL;
+	static int mmax = 0;
+	static int msz = 0;
+	char maybetoken[linemax];
+	char *result = NULL;
+	int ressz;
+	int i;
+	int c;
+
+	if (NULL == marksfile || NULL == uri)
+		return NULL;
+
+	/* read marks from disk */
+	/* malloc's each mark and string(s) for each mark; however, should only
+	 * be created once and remains useful for duration of runtime. */
+
+	if (NULL == mark) {
+		int mpos = 0;
+		FILE *file = NULL;
+		int fsz;
+		int fpos = 0;
+		char line[linemax];
+		int lpos;
+		int lsz;
+		char *strend;
+
+		file = fopen(marksfile, "r");
+		nullguard(file, NULL);
+		fseek(file, 0, SEEK_END);
+		fsz = ftell(file);
+		rewind(file);
+
+		while (fpos < fsz) {
+			/* for each line */
+
+			/* allocate memory */
+			if (mpos >= mmax) {
+				if (mmax)
+					mmax *= 2;
+				else
+					mmax = markszdef;
+				mark = realloc(mark, mmax * sizeof(BS_Mark));
+			}
+
+			/* copy next line */
+			lpos = 0;
+			while (lpos < linemax) {
+				line[lpos] = fgetc(file);
+				if (
+					'\n' == line[lpos] ||
+					0    == line[lpos] ||
+					EOF  == line[lpos]
+				) {
+					line[lpos++] = 0;
+					break;
+				}
+				++lpos;
+			}
+			fpos += lpos;
+			lsz = lpos;
+
+			if ('#' == line[0])
+				continue;
+
+			/* copy values to this mark */
+			mark[mpos].isquery = 0;
+			if (0 == strncmp("mark:", line, 5)) {
+				strend = strchr(line + 5, ':');
+				mark[mpos].token = strndup(
+					line + 5,
+					strend - (line + 5)
+				);
+				/* overwrite any ? with nul */
+				for (int i = 0; mark[mpos].token[i]; ++i) {
+					if ('?' == mark[mpos].token[i]) {
+						mark[mpos].token[i] = 0;
+						mark[mpos].isquery = 1;
+						break;
+					}
+				}
+				if (strchr(mark[mpos].token, '?'))
+					*(strend - 1) = 0;
+				mark[mpos].uri = strdup(strend + 1);
+			} else {
+				mark[mpos].token = NULL;
+				mark[mpos].uri = strdup(line);
+			}
+			++mpos;
+		}
+		msz = mpos;
+	}
+
+	/* search through marks for matches */
+	for (i = 0; i < msz; ++i) {
+		if (NULL == mark[i].token)
+			continue;
+		for (c = 0; uri[c]; ++c) {
+			maybetoken[c] = uri[c];
+			if (
+				' ' == maybetoken[c] ||
+				'\t' == maybetoken[c]
+			) {
+				maybetoken[c] = 0;
+				++c;
+			}
+			if (c == linemax - 1)
+				break;
+		}
+		maybetoken[c] = 0;
+		if (
+			strlen(mark[i].token) == strlen(maybetoken) &&
+			0 == strcmp(mark[i].token, maybetoken)
+		) {
+			if (mark[i].isquery) {
+				ressz = strlen(uri) + strlen(mark[i].uri);
+				result = malloc(ressz);
+				snprintf(
+					result,
+					ressz,
+					mark[i].uri, 
+					uri + strlen(maybetoken) + 1
+				);
+				return result;
+			} else {
+				return strdup(mark[i].uri);
+			}
+		}
+	}
+
+	/* duplicate string to ensure returned value can be free'd */
+	/* add http:// to each uri (note: loaduri() tests for this first */
+	result = malloc(strlen(uri) + 8);
+	result[0] = 0;
+	strcat(result, "http://");
+	strcat(result, uri);
+	return result;
+}
+
+/* returns malloc'd string */
+/*
 gchar*
 parseuri(const gchar *uri) {
 	guint i;
@@ -2444,6 +2591,7 @@ parseuri(const gchar *uri) {
 
 	return g_strdup_printf("http://%s", uri);
 }
+*/
 
 void
 pasteuri(GtkClipboard *clipboard, const char *text, gpointer d)
