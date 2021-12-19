@@ -98,8 +98,6 @@ int fieldlen(const char *in);
 int fieldcount(const char *in, int linelen);
 char* nextfield(char *in);
 char* getfield(char **in);
-int stradd(char **base, int *remain, const char *addition);
-void reallocstradd(char **base, int *maxlen, const char *addition);
 int guardwordsize(int modify);
 
 #endif /* FILTER_H */

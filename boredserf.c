@@ -98,6 +98,17 @@ Parameter *curconfig;
 int modparams[ParameterLast];
 int spair[2];
 char *argv0;
+GString *cookie_loc;
+GString *script_loc;
+GString *visited_loc;
+GString *marks_loc;
+GString *filterrule_loc;
+GString *filterdir_loc;
+GString *certdir_loc;
+GString *cachedir_loc;
+GString *style_loc;
+const GString *empty_gs;
+const GString *blank_gs;
 
 void
 usage(void)
@@ -138,17 +149,17 @@ setup(void)
 	curconfig = defconfig;
 
 	/* dirs and files */
-	cookiefile     = buildfile(cookiefile);
-	scriptfile     = buildfile(scriptfile);
-	visitedfile    = buildfile(visitedfile);
-	marksfile      = buildfile(marksfile);
-	filterrulefile = buildfile(filterrulefile);
-	filterdir      = buildpath(filterdir);
-	certdir        = buildpath(certdir);
+	cookie_loc     = buildfile(cookiefile);
+	script_loc     = buildfile(scriptfile);
+	visited_loc    = buildfile(visitedfile);
+	marks_loc      = buildfile(marksfile);
+	filterrule_loc = buildfile(filterrulefile);
+	filterdir_loc  = buildpath(filterdir);
+	certdir_loc    = buildpath(certdir);
 	if (curconfig[Ephemeral].val.i)
-		cachedir = NULL;
+		cachedir_loc = NULL;
 	else
-		cachedir   = buildpath(cachedir);
+		cachedir_loc = buildpath(cachedir);
 
 	gdkkb = gdk_seat_get_keyboard(gdk_display_get_default_seat(gdpy));
 
@@ -170,7 +181,7 @@ setup(void)
 	for (i = 0; i < LENGTH(certs); ++i) {
 		if (!regcomp(&(certs[i].re), certs[i].regex, REG_EXTENDED)) {
 			certs[i].file = g_strconcat(
-				certdir,
+				certdir_loc->str,
 				"/",
 				certs[i].file,
 				NULL
@@ -185,9 +196,11 @@ setup(void)
 		}
 	}
 
-	if (!stylefile) {
-		styledir = buildpath(styledir);
+	if (!stylefile && styledir) {
+		GString *styledir_loc = buildpath(styledir);
 		for (i = 0; i < LENGTH(styles); ++i) {
+			if (!styledir_loc)
+				break;
 			if (
 				!regcomp(
 					&(styles[i].re),
@@ -196,7 +209,7 @@ setup(void)
 				)
 			) {
 				styles[i].file = g_strconcat(
-					styledir,
+					styledir_loc->str,
 					"/",
 					styles[i].file,
 					NULL
@@ -210,9 +223,9 @@ setup(void)
 				styles[i].regex = NULL;
 			}
 		}
-		g_free(styledir);
+		g_string_free(styledir_loc, TRUE);
 	} else {
-		stylefile = buildfile(stylefile);
+		style_loc = buildfile(stylefile);
 	}
 
 	for (i = 0; i < LENGTH(uriparams); ++i) {
@@ -240,6 +253,8 @@ setup(void)
 	}
 
 	pagefiles = NULL;
+	empty_gs = g_string_new(NULL);
+	blank_gs = g_string_new("about:blank");
 }
 
 void
@@ -261,112 +276,73 @@ sighup(int unused)
 		reload(c, &a);
 }
 
-char*
-buildfile(const char *path)
+GString*
+buildfile(const char *input)
 {
-	char *dname, *bname, *bpath, *fpath;
-	FILE *f;
+	FILE *file;
+	GString *dirpath_gs;
+	char *dirname_c;
+	char *basename_c;
+	char *path_c;
 
-	dname = g_path_get_dirname(path);
-	bname = g_path_get_basename(path);
+	dirname_c  = g_path_get_dirname(input);
+	basename_c = g_path_get_basename(input);
 
-	bpath = buildpath(dname);
-	g_free(dname);
+	dirpath_gs = buildpath(dirname_c);
+	g_free(dirname_c);
 
-	fpath = g_build_filename(bpath, bname, NULL);
-	g_free(bpath);
-	g_free(bname);
+	path_c = g_build_filename(dirpath_gs->str, basename_c, NULL);
+	g_string_free(dirpath_gs, TRUE);
+	g_free(basename_c);
 
-	if (!(f = fopen(fpath, "a"))) {
-		fprintf(stderr, "For %s: ", fpath);
+	if (!(file = fopen(path_c, "a"))) {
+		fprintf(stderr, "For %s: ", path_c);
 		die("Could not open file.");
 	}
 
-	g_chmod(fpath, 0600); /* always */
-	fclose(f);
+	/* always */
+	g_chmod(path_c, 0600);
+	fclose(file);
 
-	return fpath;
+	return g_string_new(path_c);
 }
 
-const char*
-getuserhomedir(const char *user)
+GString*
+buildpath(const char *input)
 {
-	struct passwd *pw = getpwnam(user);
+	GString *path;
+	char *rp;
 
-	if (!pw) {
-		fprintf(stderr, "For %s: ", user);
-		die("Could not get user login information.");
-	}
-
-	return pw->pw_dir;
-}
-
-const char*
-getcurrentuserhomedir(void)
-{
-	const char *homedir;
-	const char *user;
-	struct passwd *pw;
-
-	homedir = getenv("HOME");
-	if (homedir)
-		return homedir;
-
-	user = getenv("USER");
-	if (user)
-		return getuserhomedir(user);
-
-	pw = getpwuid(getuid());
-	if (!pw)
-		die("Could not get current user home directory.");
-
-	return pw->pw_dir;
-}
-
-/* returns malloc'd string */
-char*
-buildpath(const char *path)
-{
-	char *apath, *fpath;
-
-	if (path[0] == '~')
-		apath = untildepath(path);
+	nullguard(input, NULL);
+	if (g_str_has_prefix(input, "~"))
+		path = shellexpand(g_string_new(input));
 	else
-		apath = g_strdup(path);
+		return g_string_new(input);
 
-	/* creating directory */
-	if (g_mkdir_with_parents(apath, 0700) < 0) {
-		fprintf(stderr, "For %s: ", apath);
+	/* create directory */
+	if (0 > g_mkdir_with_parents(path->str, 0700)) {
+		fprintf(stderr, "For %s: ", input);
 		die("Could not access directory.");
 	}
 
-	fpath = realpath(apath, NULL);
-	g_free(apath);
-
-	return fpath;
+	rp = realpath(path->str, NULL);
+	nullguard(rp, path);
+	path = g_string_assign(path, rp);
+	free(rp);
+	return path;
 }
 
-/* returns malloc'd string */
-char*
-untildepath(const char *path)
+GString*
+shellexpand(GString *expr)
 {
-	char *apath, *name, *p;
-	const char *homedir;
+	char *cmdret;
 
-	if (path[1] == '/' || path[1] == '\0') {
-		p = (char *)&path[1];
-		homedir = getcurrentuserhomedir();
-	} else {
-		if ((p = strchr(path, '/')))
-			name = g_strndup(&path[1], p - (path + 1));
-		else
-			name = g_strdup(&path[1]);
-
-		homedir = getuserhomedir(name);
-		g_free(name);
-	}
-	apath = g_build_filename(homedir, p, NULL);
-	return apath;
+	nullguard(expr, NULL);
+	cmdret = sh_expand(expr->str);
+	nullguard(cmdret, expr);
+	expr = g_string_assign(expr, cmdret);
+	free(cmdret);
+	return expr;
 }
 
 Client*
@@ -383,6 +359,7 @@ newclient(Client *rc)
 	c->progress = 100;
 	c->view = newview(c, rc ? rc->view : NULL);
 	c->board_flags = -1;
+	c->board_input = g_string_new(NULL);
 
 	return c;
 }
@@ -391,74 +368,90 @@ void
 loaduri(Client *c, const Arg *a)
 {
 	struct stat st;
-	char *url, *path, *apath;
-	const char *uri = a->v;
+	GString *input;
+	GString *path;
+	GString *currenturi;
+	GString *url;
+	char *path_c;
 	FILE *visited;
 
-	if (g_strcmp0(uri, "") == 0)
+	/* require some input from a->v */
+	if (!a || !a->v || !((char*)a->v)[0])
 		return;
+	input = g_string_new(a->v);
 
 	if (
-		g_str_has_prefix(uri, "http://")  ||
-		g_str_has_prefix(uri, "https://") ||
-		g_str_has_prefix(uri, "file://")  ||
-		g_str_has_prefix(uri, "about:")
+		g_str_has_prefix(input->str, "http://")  ||
+		g_str_has_prefix(input->str, "https://") ||
+		g_str_has_prefix(input->str, "file://")  ||
+		g_str_has_prefix(input->str, "about:")
 	) {
-		url = g_strdup(uri);
+		url = input;
 	} else {
-		if (uri[0] == '~')
-			apath = untildepath(uri);
+		url = g_string_new(NULL);
+		if (g_str_has_prefix(input->str, "~"))
+			path = shellexpand(input);
 		else
-			apath = (char *)uri;
-		if (!stat(apath, &st) && (path = realpath(apath, NULL))) {
-			url = g_strdup_printf("file://%s", path);
-			free(path);
+			path = input;
+
+		if (
+			/* stat returns 0 on success */
+			!stat(path->str, &st) &&
+			(path_c = realpath(path->str, NULL))
+		) {
+			g_string_printf(url, "file://%s", path_c);
 		} else {
-			url = testmarks(uri);
+			path_c = testmarks(input->str);
+			nullguard(path_c);
+			g_string_append(url, path_c);
 		}
-		if (apath != uri)
-			free(apath);
+		g_string_free(path, TRUE);
+		free(path_c);
 	}
 
 	setatom(c, AtomUri, url);
 
-	if (strcmp(url, geturi(c)) == 0) {
+	currenturi = geturi(c);
+	if (g_string_equal(url, currenturi)) {
 		reload(c, a);
 	} else {
-		webkit_web_view_load_uri(c->view, url);
+		webkit_web_view_load_uri(c->view, url->str);
 		updatetitle(c);
 	}
 
-	if (visitedfile && (visited = fopen(visitedfile, "a+"))) {
-		fwrite(url, 1, strlen(url), visited);
+	if (visited_loc && (visited = fopen(visited_loc->str, "a+"))) {
+		fwrite(url->str, 1, url->len, visited);
 		fwrite("\n", 1, 1, visited);
 		fclose(visited);
 	}
 	resetkeytree(c);
-	g_free(url);
+	g_string_free(url, TRUE);
+	g_string_free(currenturi, TRUE);
 }
 
 void
 updateenv(Client *c)
 {
-	static char *uri = NULL;
+	static GString *uri = NULL;
+	GString *currenturi = geturi(c);
 
 	/* update once per URI */
-	if (uri && 0 == strcmp(geturi(c), uri)) {
+	if (uri && currenturi && g_string_equal(uri, currenturi)) {
+		g_string_free(currenturi, TRUE);
 		return;
 	}
 	if (NULL != uri)
-		free(uri);
-	uri = strdup(geturi(c));
+		g_string_free(uri, TRUE);
+	uri = currenturi;
 
 	if (NULL == pagefiles) {
 		int len;
 		int pos = 0;
-		nullguard(cachedir);
-		len = strlen(cachedir) + 12;
+		nullguard(cachedir_loc);
+		len = cachedir_loc->len + 12;
 		pagefiles = malloc(len);
 		pagefiles[pos] = 0;
-		strncat(pagefiles, cachedir, len);
+		strncat(pagefiles, cachedir_loc->str, len);
 		strncat(pagefiles, "/tmp-XXXXXX", len - strlen(pagefiles));
 		mkdtemp(pagefiles);
 		nullguard(pagefiles);
@@ -473,25 +466,25 @@ updateenv(Client *c)
 	getpagescripts(c);
 	//getpagestyles(c);
 	getpageimages(c);
-	setenv("BS_URI", geturi(c), 1);
-	if (NULL != visitedfile)
-		setenv("BS_VISITED", visitedfile, 1);
+	setenv("BS_URI", uri->str, 1);
+	if (NULL != visited_loc->str && visited_loc->len)
+		setenv("BS_VISITED", visited_loc->str, 1);
 	filter_stripper(c, getenv("BS_URI"));
 	getpagehead_stripped(c);
 	getpagebody_stripped(c);
 }
 
-const char*
+GString*
 geturi(Client *c)
 {
-	const char *uri;
+	const char *uri = NULL;
 	if (!(uri = webkit_web_view_get_uri(c->view)))
 		uri = "about:blank";
-	return uri;
+	return g_string_new(uri);
 }
 
 void
-setatom(Client *c, int a, const char *v)
+setatom(Client *c, int a, const GString *v)
 {
 	XChangeProperty(
 		dpy,
@@ -500,8 +493,8 @@ setatom(Client *c, int a, const char *v)
 		atoms[AtomUTF8],
 		8,
 		PropModeReplace,
-		(unsigned char *)v,
-		strlen(v) + 1
+		(unsigned char *)v->str,
+		v->len + 1
 	);
 	XSync(dpy, False);
 }
@@ -988,6 +981,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 {
 	GdkRGBA bgcolor = { 0 };
 	WebKitSettings *s = webkit_web_view_get_settings(c->view);
+	GString *uri = NULL;
 	Arg passthru;
 
 	modparams[p] = curconfig[p].prio;
@@ -1003,7 +997,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 		break;
 	case Certificate:
 		if (a->i)
-			setcert(c, geturi(c));
+			setcert(c);
 		return; /* do not update */
 	case ContentFilter:
 		passthru.i = FilterTogGlobal;
@@ -1123,8 +1117,11 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 		webkit_user_content_manager_remove_all_style_sheets(
 			webkit_web_view_get_user_content_manager(c->view)
 		);
-		if (a->i)
-			setstyle(c, getstyle(geturi(c)));
+		if (a->i) {
+			uri = geturi(c);
+			setstyle(c, getstyle(uri->str));
+			g_string_free(uri, TRUE);
+		}
 		refresh = 0;
 		break;
 	case WebGL:
@@ -1160,33 +1157,39 @@ getcert(const char *uri)
 }
 
 void
-setcert(Client *c, const char *uri)
+setcert(Client *c)
 {
-	const char *file = getcert(uri);
-	char *host;
-	GTlsCertificate *cert;
+	GTlsCertificate *cert = NULL;
+	GString *uri = geturi(c);
+	const char *file = getcert(uri->str);
+	const char *https = "https://";
 
-	if (!file)
+	if (!file) {
+		g_string_free(uri, TRUE);
 		return;
+	}
 
 	if (!(cert = g_tls_certificate_new_from_file(file, NULL))) {
+		g_string_free(uri, TRUE);
 		fprintf(stderr, "For %s: ", file);
 		err("Could not read certificate file.");
 	}
 
-	if ((uri = strstr(uri, "https://"))) {
-		uri += sizeof("https://") - 1;
-		host = g_strndup(uri, strchr(uri, '/') - uri);
+	if (g_str_has_prefix(uri->str, https)) {
+		char *host_begin;
+		char *host_end;
+		host_begin = uri->str + strlen(https);
+		host_end = strchr(host_begin, '/');
+		*host_end = 0;
 		webkit_web_context_allow_tls_certificate_for_host(
 			webkit_web_view_get_context(c->view),
 			cert,
-			host
+			host_begin
 		);
-		g_free(host);
 	}
 
+	g_string_free(uri, TRUE);
 	g_object_unref(cert);
-
 }
 
 const char*
@@ -1194,8 +1197,8 @@ getstyle(const char *uri)
 {
 	int i;
 
-	if (stylefile)
-		return stylefile;
+	if (style_loc)
+		return style_loc->str;
 
 	for (i = 0; i < LENGTH(styles); ++i) {
 		if (
@@ -1233,45 +1236,13 @@ setstyle(Client *c, const char *file)
 	g_free(style);
 }
 
-int
-stradd(char **base, int *remain, const char *addition)
-{
-	/* assumes addition is null-terminated */
-	int pos = 0;
-	nullguard(base, 0);
-	nullguard(*base, 0);
-	nullguard(remain, 0);
-	nullguard(addition, 0);
-	if (strlen(addition) > *remain)
-		return -1;
-	while (addition[pos]) {
-		(*base)[pos] = addition[pos];
-		++pos;
-	}
-	*base += pos;
-	*remain -= pos;
-	return pos;
-}
-
-void
-reallocstradd(char **base, int *maxlen, const char *addition)
-{
-	/* assumes *base and addition are null-terminated */
-	enum { increment = 2048 };
-	while (strlen(*base) + strlen(addition) >= *maxlen) {
-		*maxlen += increment;
-		*base = realloc(*base, *maxlen);
-	}
-	strcat(*base, addition);
-}
-
 void
 runscript(Client *c)
 {
 	gchar *script;
 	gsize l;
 
-	if (g_file_get_contents(scriptfile, &script, &l, NULL) && l)
+	if (g_file_get_contents(script_loc->str, &script, &l, NULL) && l)
 		evalscript(c, "%s", script);
 	g_free(script);
 }
@@ -1316,13 +1287,13 @@ newwindow(Client *c, const Arg *a, int noembed)
 	cmd[i++] = "-a";
 	cmd[i++] = curconfig[CookiePolicies].val.v;
 	cmd[i++] = curconfig[ScrollBars].val.i ? "-B" : "-b";
-	if (cookiefile && g_strcmp0(cookiefile, "")) {
+	if (cookie_loc && g_strcmp0(cookie_loc->str, "")) {
 		cmd[i++] = "-c";
-		cmd[i++] = cookiefile;
+		cmd[i++] = cookie_loc->str;
 	}
-	if (stylefile && g_strcmp0(stylefile, "")) {
+	if (style_loc && g_strcmp0(style_loc->str, "")) {
 		cmd[i++] = "-C";
-		cmd[i++] = stylefile;
+		cmd[i++] = style_loc->str;
 	}
 	cmd[i++] = curconfig[DiskCache].val.i ? "-D" : "-d";
 	if (embed && !noembed) {
@@ -1336,9 +1307,9 @@ newwindow(Client *c, const Arg *a, int noembed)
 	cmd[i++] = curconfig[KioskMode].val.i ?       "-K" : "-k" ;
 	cmd[i++] = curconfig[Style].val.i ?           "-M" : "-m" ;
 	cmd[i++] = curconfig[Inspector].val.i ?       "-N" : "-n" ;
-	if (scriptfile && g_strcmp0(scriptfile, "")) {
+	if (script_loc && g_strcmp0(script_loc->str, "")) {
 		cmd[i++] = "-r";
-		cmd[i++] = scriptfile;
+		cmd[i++] = script_loc->str;
 	}
 	cmd[i++] = curconfig[JavaScript].val.i ? "-S" : "-s";
 	cmd[i++] = curconfig[StrictTLS].val.i ? "-T" : "-t";
@@ -1384,6 +1355,8 @@ destroyclient(Client *c)
 	/* Not needed, has already been called
 	   gtk_widget_destroy(c->win);
 	   */
+	if (c->board_input)
+		g_string_free(c->board_input, TRUE);
 
 	for (p = clients; p && p->next != c; p = p->next)
 		;
@@ -1418,10 +1391,14 @@ cleanup(void)
 
 	close(spair[0]);
 	close(spair[1]);
-	g_free(cookiefile);
-	g_free(scriptfile);
-	g_free(stylefile);
-	g_free(cachedir);
+	if (cookie_loc)
+		g_string_free(cookie_loc, TRUE);
+	if (script_loc)
+		g_string_free(script_loc, TRUE);
+	if (cachedir_loc)
+		g_string_free(cachedir_loc, TRUE);
+	if (style_loc)
+		g_string_free(style_loc, TRUE);
 	XCloseDisplay(dpy);
 }
 
@@ -1500,9 +1477,9 @@ newview(Client *c, WebKitWebView *rv)
 			context = webkit_web_context_new_with_website_data_manager(
 				webkit_website_data_manager_new(
 					"base-cache-directory",
-					cachedir,
+					cachedir_loc->str,
 					"base-data-directory",
-					cachedir,
+					cachedir_loc->str,
 					NULL
 				)
 			);
@@ -1538,7 +1515,7 @@ newview(Client *c, WebKitWebView *rv)
 		if (!curconfig[Ephemeral].val.i) {
 			webkit_cookie_manager_set_persistent_storage(
 				cookiemanager,
-				cookiefile,
+				cookie_loc->str,
 				WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT
 			);
 		}
@@ -1874,8 +1851,8 @@ showview(WebKitWebView *v, Client *c)
 		webkit_web_view_set_zoom_level(c->view,
 			curconfig[ZoomLevel].val.f);
 
-	setatom(c, AtomFind, "");
-	setatom(c, AtomUri, "about:blank");
+	setatom(c, AtomFind, empty_gs);
+	setatom(c, AtomUri, blank_gs);
 }
 
 void
@@ -2017,14 +1994,14 @@ loadfailedtls(
 void
 loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 {
-	const char *uri = geturi(c);
+	const GString *uri = geturi(c);
 
 	switch (e) {
 	case WEBKIT_LOAD_STARTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri;
+		c->title = uri->str;
 		c->https = c->insecure = 0;
-		seturiparameters(c, uri, loadtransient);
+		seturiparameters(c, uri->str, loadtransient);
 		if (c->errorpage)
 			c->errorpage = 0;
 		else
@@ -2032,13 +2009,13 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		break;
 	case WEBKIT_LOAD_REDIRECTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri;
-		seturiparameters(c, uri, loadtransient);
+		c->title = uri->str;
+		seturiparameters(c, uri->str, loadtransient);
 		break;
 	case WEBKIT_LOAD_COMMITTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri;
-		seturiparameters(c, uri, loadcommitted);
+		c->title = uri->str;
+		seturiparameters(c, uri->str, loadcommitted);
 		c->https = webkit_web_view_get_tls_info(
 			c->view,
 			&c->cert,
@@ -2046,7 +2023,7 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		);
 		break;
 	case WEBKIT_LOAD_FINISHED:
-		seturiparameters(c, uri, loadfinished);
+		seturiparameters(c, uri->str, loadfinished);
 		/* Disabled until we write some WebKitWebExtension for
 		 * manipulating the DOM directly. */
 		/*
@@ -2286,8 +2263,10 @@ responsereceived(WebKitDownload *d, GParamSpec *ps, Client *c)
 void
 download(Client *c, WebKitURIResponse *r)
 {
-	Arg a = (Arg)DOWNLOAD(webkit_uri_response_get_uri(r), geturi(c));
+	GString *uri = geturi(c);
+	Arg a = (Arg)DOWNLOAD(webkit_uri_response_get_uri(r), uri->str);
 	spawn(c, &a);
+	g_string_free(uri, TRUE);
 }
 
 void
@@ -2438,7 +2417,7 @@ testmarks(const char *uri)
 	int i;
 	int c;
 
-	if (NULL == marksfile || NULL == uri)
+	if (NULL == marks_loc || NULL == uri)
 		return NULL;
 
 	/* read marks from disk */
@@ -2455,7 +2434,7 @@ testmarks(const char *uri)
 		int lsz;
 		char *strend;
 
-		file = fopen(marksfile, "r");
+		file = fopen(marks_loc->str, "r");
 		nullguard(file, NULL);
 		fseek(file, 0, SEEK_END);
 		fsz = ftell(file);
@@ -2604,16 +2583,19 @@ pasteuri(GtkClipboard *clipboard, const char *text, gpointer d)
 void
 i_seturi(Client *c, const Arg *a)
 {
-	char *result;
+	char *result_c;
+	GString *result_gs;
 	int len;
 
 	nullguard(c);
 	updatewinid(c);
 
-	result = cmd(NULL, selector_go);
-	if (NULL != result) {
-		setatom(c, AtomGo, result);
-		free(result);
+	result_c = cmd(NULL, selector_go);
+	if (NULL != result_c) {
+		result_gs = g_string_new(result_c);
+		setatom(c, AtomGo, result_gs);
+		free(result_c);
+		g_string_free(result_gs, TRUE);
 	}
 }
 
@@ -2621,18 +2603,16 @@ void
 i_find(Client *c, const Arg *a)
 {
 	char *result = NULL;
-	char *words = NULL;
+	GString *result_gs;
 
 	nullguard(c);
 	updatewinid(c);
 
 	if ((result = cmd(NULL, selector_find))) {
-		/* remove any trailing newline */
-		if ('\n' == result[strlen(result) - 1])
-			result[strlen(result) - 1] = 0;
-		setatom(c, AtomFind, result);
-		freeandnull(words);
+		result_gs = g_string_new(result);
+		setatom(c, AtomFind, result_gs);
 		freeandnull(result);
+		g_string_free(result_gs, TRUE);
 	}
 }
 
@@ -2681,6 +2661,7 @@ showcert(Client *c, const Arg *a)
 void
 clipboard(Client *c, const Arg *a)
 {
+	GString *uri = geturi(c);
 	if (a->i) { /* load clipboard uri */
 		gtk_clipboard_request_text(
 			gtk_clipboard_get(
@@ -2695,11 +2676,12 @@ clipboard(Client *c, const Arg *a)
 				GDK_SELECTION_PRIMARY
 			),
 			c->targeturi
-			? c->targeturi :
-			geturi(c),
+			? c->targeturi
+			: uri->str,
 			-1
 		);
 	}
+	g_string_free(uri, TRUE);
 }
 
 void

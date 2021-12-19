@@ -2,8 +2,6 @@
 
 #include "board.h"
 
-enum { maxlen = 512 };
-
 void
 board(Client *c, const Arg *a)
 {
@@ -19,10 +17,7 @@ board(Client *c, const Arg *a)
 gboolean
 board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 {
-	static char status[maxlen];
-	static char input[maxlen];
-	static int pos = 0;
-
+	GString *input = c->board_input;
 	if (GDK_KEY_PRESS != e->type)
 		return FALSE;
 	if (e->key.is_modifier)
@@ -66,7 +61,7 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 		switch (e->key.keyval) {
 		case GDK_KEY_Escape: /* fall through */
 			if (c->board_flags & 1 << boardtype_find) {
-				setatom(c, AtomFind, "");
+				setatom(c, AtomFind, empty_gs);
 				webkit_find_controller_search_finish(
 					c->finder
 				);
@@ -90,25 +85,19 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 
 		case GDK_KEY_BackSpace: /* fall through */
 		case GDK_KEY_Delete:
-			if (pos > 0)
-				input[--pos] = 0;
+			if (input->len > 0)
+				g_string_erase(input, input->len - 1, 1);
 			break;
 
 		default:
-			if (pos == maxlen - 1) {
-				fprintf(stderr, "Search string is too long.");
-				return TRUE;
-			}
-			input[pos++] = e->key.keyval;
-			input[pos] = 0;
+			g_string_append_c(input, e->key.keyval);
 			break;
 		}
 	}
 
 	/* reset entire search */
 	if (-1 == c->board_flags) {
-		pos = 0;
-		input[pos] = 0;
+		g_string_erase(input, 0, -1);
 		replacekeytree(c, NULL);
 		c->overtitle = c->targeturi;
 		updatetitle(c);
@@ -123,31 +112,32 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 }
 
 void
-board_status(Client *c, char *input, char *match)
+board_status(Client *c, GString *input, GString *match)
 {
-	const char active[]   = "FGML";
-	const char inactive[] = "fgml";
-	char status[maxlen];
+	enum { flaglen = 4 };
+	const char active[flaglen]   = "FGML";
+	const char inactive[flaglen] = "fgml";
+	GString *status = g_string_new(NULL);
 	const char *existing;
 	int i;
 
 	/* build status string */
-	for (i = 0; i < strlen(active); ++i) {
+	for (i = 0; i < flaglen; ++i) {
 		if (c->board_flags & 1 << i)
-			status[i] = active[i];
+			g_string_append_c(status, active[i]);
 		else
-			status[i] = inactive[i];
+			g_string_append_c(status, inactive[i]);
 	}
-	status[i] = 0;
-	strncat(status, ": ", maxlen - strlen(status));
-	if (input) {
-		strncat(status, input, maxlen - strlen(status));
+	g_string_append(status, ": ");
+	if (input && input->len) {
+		g_string_append(status, input->str);
 	} else if (c->board_flags & 1 << boardtype_find) {
 		existing = webkit_find_controller_get_search_text(c->finder);
 		if (existing)
-			strncat(status, existing, maxlen - strlen(existing));
+			g_string_append(status, existing);
 	}
-	if (match)
-		strncat(status, match, maxlen - strlen(status));
-	gtk_window_set_title(GTK_WINDOW(c->win), status);
+	if (match && match->len)
+		g_string_append(status, match->str);
+	gtk_window_set_title(GTK_WINDOW(c->win), status->str);
+	g_string_free(status, TRUE);
 }

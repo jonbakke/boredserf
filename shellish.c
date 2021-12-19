@@ -1,3 +1,4 @@
+#include <glib.h>
 #include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
@@ -11,14 +12,20 @@
 char*
 sh_expand(char *str)
 {
+	GString *composed = g_string_new("echo ");
+	char *result;
+	nullguard(str, NULL);
+	g_string_append(composed, str);
+
 	const char *command[] = {
 		"/bin/sh",
-		"sh", "-c", "echo", str,
+		"sh", "-c", composed->str,
 		NULL
 	};
 
-	nullguard(str, NULL);
-	return cmd(NULL, command);
+	result = cmd(NULL, command);
+	g_string_free(composed, TRUE);
+	return result;
 }
 
 char*
@@ -31,6 +38,7 @@ filetostr(char *filename)
 
 	nullguard(filename, NULL);
 
+	printf("filetostr %s\n", filename);
 	if (!(file = fopen(filename, "r"))) {
 		fprintf(stderr, "With %s: ", filename);
 		err("Unrecognized filename.", NULL);
@@ -109,6 +117,10 @@ cmd(const char *input, const char *command[])
 		free(buf);
 		return NULL;
 	}
+
+	/* remove any trailing newline */
+	if ('\n' == buf[bufpos - 1])
+		buf[--bufpos] = 0;
 
 	/* move result to smaller memory allocation */
 	result = malloc(bufpos + 1);

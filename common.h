@@ -47,7 +47,8 @@
 		if (NULL == x) {\
 			fprintf( \
 				stderr, \
-				"Unexpected null at line %d.\n", \
+				"Unexpected null at %s:%d.\n", \
+				__FILE__, \
 				__LINE__ \
 			); \
 			return __VA_ARGS__; \

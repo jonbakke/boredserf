@@ -1,6 +1,4 @@
-/* modifier 0 means no modifier */
-int bs_useragent    = 1;  /* Append boredserf version to default WebKit user agent */
-char *fulluseragent  = ""; /* Or override the whole user agent string */
+/* filesystem paths */
 char *scriptfile     = "~/.config/boredserf/script.js";
 char *styledir       = "~/.config/boredserf/styles/";
 char *certdir        = "~/.config/boredserf/certificates/";
@@ -10,6 +8,12 @@ char *filterrulefile = "~/.config/boredserf/filter.rules";
 char *filterdir      = "~/.config/boredserf/filters/";
 char *visitedfile    = "~/.config/boredserf/visited";
 char *marksfile      = "~/.config/boredserf/marks";
+
+/* user agent */
+/* if bs_useragent != 0, append boredserf version to default WebKit value */
+/* if fulluseragent, use that instead of the default WebKit value */
+int bs_useragent     = 1;
+char *fulluseragent  = "";
 
 /* External utilities for interaction */
 /* Note that these are not in the default keymap, but can be enabled
@@ -158,6 +162,7 @@ SiteSpecific certs[] = {
  * If you use anything else but MODKEY and GDK_SHIFT_MASK, don't forget to
  * edit the CLEANMASK() macro.
  */
+/* modifier 0 means no modifier */
 
 /* content filter bindings */
 Key filterkeys[] = {

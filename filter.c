@@ -11,7 +11,7 @@
 char *filterrulesjson;
 FilterRule *filterrules;
 WebKitUserContentFilter *filter;
-WebKitUserContentFilterStore *filterstore;
+WebKitUserContentFilterStore *filterstore = NULL;
 
 void
 filter_read(void)
@@ -27,9 +27,9 @@ filter_read(void)
 
 	if (NULL != filterrules)
 		filter_freeall();
-	if (NULL == filterrulefile)
+	if (NULL == filterrulefile || NULL == filterrule_loc)
 		return;
-	file = fopen(filterrulefile, "r");
+	file = fopen(filterrule_loc->str, "r");
 	nullguard(file);
 
 	fseek(file, 0, SEEK_END);
@@ -97,7 +97,7 @@ filter_write(void)
 	enum { linemax = 2048 };
 	FilterRule *rule = filterrules;
 	FILE *output;
-	char *filterrulefiletemp;
+	GString *tempfile;
 	char *ptr;
 	char line[linemax];
 	int hidep1;
@@ -107,10 +107,10 @@ filter_write(void)
 		return;
 
 	nullguard(filterrulefile);
-	filterrulefiletemp = malloc(strlen(filterrulefile) + 4);
-	nullguard(filterrulefiletemp);
-	sprintf(filterrulefiletemp, "%s%s", filterrulefile, "new");
-	output = fopen(filterrulefiletemp, "w+");
+	nullguard(filterrule_loc);
+	tempfile = g_string_new(filterrule_loc->str);
+	g_string_append(tempfile, "new");
+	output = fopen(tempfile->str, "w+");
 	nullguard(output);
 
 	while (NULL != rule) {
@@ -179,8 +179,8 @@ filter_write(void)
 	}
 
 	fclose(output);
-	rename(filterrulefiletemp, filterrulefile);
-	free(filterrulefiletemp);
+	rename(tempfile->str, filterrule_loc->str);
+	g_string_free(tempfile, TRUE);
 }
 
 void
@@ -204,7 +204,11 @@ filter_apply(Client *c)
 	jsonsz = strlen(filterrulesjson);
 	json = g_bytes_new(filterrulesjson, jsonsz);
 
-	filterstore = webkit_user_content_filter_store_new(filterdir);
+	if (NULL == filterstore) {
+		filterstore = webkit_user_content_filter_store_new(
+			filterdir_loc->str
+		);
+	}
 	webkit_user_content_filter_store_save(
 		filterstore,
 		filterid,
@@ -569,15 +573,11 @@ filter_updatejson(void)
 		"\"block\"}}";
 	const char actallow[] = "]},\n \"action\":{\"type\":"
 		"\"ignore-previous-rules\"}}";
-	char *j;
+	GString *j = g_string_new(NULL);
 	int len = 2048;
 	int first = 1;
 
-	j = malloc(len);
-	nullguard(j);
-	j[0] = 0;
-
-	reallocstradd(&j, &len, "[");
+	g_string_append_c(j, '[');
 	while (NULL != rule) {
 		filter_ruletojson(rule);
 		if (NULL == rule->jsonpreface) {
@@ -586,52 +586,53 @@ filter_updatejson(void)
 		}
 		if (NULL != rule->p1.jsonallow) {
 			if (!first)
-				reallocstradd(&j, &len, ",");
+				g_string_append_c(j, ',');
 			else
 				first = 0;
-			reallocstradd(&j, &len, rule->jsonpreface);
-			reallocstradd(&j, &len, rule->p1.jsonallow);
-			reallocstradd(&j, &len, actallow);
+			g_string_append(j, rule->jsonpreface);
+			g_string_append(j, rule->p1.jsonallow);
+			g_string_append(j, actallow);
 		}
 		if (NULL != rule->p1.jsonblock) {
 			if (!first)
-				reallocstradd(&j, &len, ",");
+				g_string_append_c(j, ',');
 			else
 				first= 0;
-			reallocstradd(&j, &len, rule->jsonpreface);
-			reallocstradd(&j, &len, rule->p1.jsonblock);
-			reallocstradd(&j, &len, actblock);
+			g_string_append(j, rule->jsonpreface);
+			g_string_append(j, rule->p1.jsonblock);
+			g_string_append(j, actblock);
 		}
 		if (NULL != rule->p3.jsonallow) {
 			if (!first)
-				reallocstradd(&j, &len, ",");
+				g_string_append_c(j, ',');
 			else
 				first = 0;
-			reallocstradd(&j, &len, rule->jsonpreface);
-			reallocstradd(&j, &len, rule->p3.jsonallow);
-			reallocstradd(&j, &len, actallow);
+			g_string_append(j, rule->jsonpreface);
+			g_string_append(j, rule->p3.jsonallow);
+			g_string_append(j, actallow);
 		}
 		if (NULL != rule->p3.jsonblock) {
 			if (!first)
-				reallocstradd(&j, &len, ",");
+				g_string_append_c(j, ',');
 			else
 				first = 0;
-			reallocstradd(&j, &len, rule->jsonpreface);
-			reallocstradd(&j, &len, rule->p3.jsonblock);
-			reallocstradd(&j, &len, actblock);
+			g_string_append(j, rule->jsonpreface);
+			g_string_append(j, rule->p3.jsonblock);
+			g_string_append(j, actblock);
 		}
 
 		rule = rule->next;
 	}
 
-	if (1 == strlen(j))
+	if (1 == j->len)
 		freeandnull(j);
 	else
-		reallocstradd(&j, &len, "]");
+		g_string_append_c(j, ']');
 
-	if (NULL != j) {
+	if (NULL != j && j->len) {
 		freeandnull(filterrulesjson);
-		filterrulesjson = j;
+		filterrulesjson = j->str;
+		g_string_free(j, FALSE);
 	}
 }
 
@@ -640,8 +641,7 @@ filter_ruletojson(FilterRule *rule)
 {
 	enum { max = 4096 };
 	char preface[max];
-	char *p;
-	int c;
+	GString *pref = g_string_new(NULL);
 
 	nullguard(rule);
 	rule->dirtyjson = 0;
@@ -660,26 +660,24 @@ filter_ruletojson(FilterRule *rule)
 	}
 
 	if (NULL == rule->jsonpreface) {
-		p = preface;
-		c = max;
-		stradd(&p, &c, "{\n \"trigger\":{\"url-filter\":\"");
+		g_string_append(pref, "{\n \"trigger\":{\"url-filter\":\"");
 		if (NULL != rule->ifurl)
-			stradd(&p, &c, rule->ifurl);
+			g_string_append(pref, rule->ifurl);
 		else
-			stradd(&p, &c,".*");
-		stradd(&p, &c, "\"");
+			g_string_append(pref, ".*");
+		g_string_append_c(pref, '"');
 		if (
 			NULL != rule->iftopurl &&
 			'*' != rule->iftopurl[0] &&
 			0 != rule->iftopurl[1]
 		) {
-			stradd(&p, &c, ",\"if-top-url\":[\"");
-			stradd(&p, &c, rule->iftopurl);
-			stradd(&p, &c, "\"]");
+			g_string_append(pref, ",\"if-top-url\":[\"");
+			g_string_append(pref, rule->iftopurl);
+			g_string_append(pref, "\"]");
 		}
-		stradd(&p, &c, ",\"resource-type\":[");
-		p[0] = 0;
-		rule->jsonpreface = strdup(preface);
+		g_string_append(pref, ",\"resource-type\":[");
+		rule->jsonpreface = pref->str;
+		g_string_free(pref, FALSE);
 	}
 
 	filter_setresourcenames(rule->p1.allow, &rule->p1.jsonallow);
@@ -704,8 +702,7 @@ filter_setresourcenames(int types, char **names)
 		"\"popup\""
 	};
 	char text[max];
-	char *p = text;
-	int c = max;
+	GString *result = g_string_new(NULL);
 	int first = 1;
 	int i;
 
@@ -722,14 +719,14 @@ filter_setresourcenames(int types, char **names)
 		if (! (types & 1<<i))
 			continue;
 		if (!first)
-			stradd(&p, &c, ",");
+			g_string_append_c(result, ',');
 		else
 			first = 0;
-		stradd(&p, &c, resource[i]);
+		g_string_append(result, resource[i]);
 	}
-	p[0] = 0;
 
-	*names = strdup(text);
+	*names = result->str;
+	g_string_free(result, FALSE);
 }
 
 void

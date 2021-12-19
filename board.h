@@ -33,6 +33,6 @@ enum BoredBoard {
 
 void board(Client *c, const Arg *a);
 gboolean board_handler(GtkWidget *w, GdkEvent *e, Client *c);
-void board_status(Client *c, char *input, char *match);
+void board_status(Client *c, GString *input, GString *match);
 
 #endif /* BOARD_H */
