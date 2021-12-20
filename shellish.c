@@ -127,5 +127,6 @@ cmd(const char *input, const char *command[])
 	result[bufpos] = 0;
 	strncpy(result, buf, bufpos);
 	free(buf);
+	waitpid(-1, NULL, WNOHANG);
 	return result;
 }
