@@ -67,9 +67,9 @@ extern char *filterdir;
 extern char *filterrulesjson;
 extern FilterRule *filterrules;
 extern WebKitUserContentFilter *filter;
-extern WebKitUserContentFilterStore *filterstore;
 
 void filter_read(void);
+void filter_parse(char *filterrulestext);
 void filter_write(void);
 void filter_apply(Client *c);
 void filter_apply_cb(GObject *src, GAsyncResult *res, gpointer data);

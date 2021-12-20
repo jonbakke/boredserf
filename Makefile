@@ -22,6 +22,9 @@ options:
 boredserf: $(OBJ)
 	$(CC) $(BS_LDFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
 
+debug: $(SRC) Makefile
+	gcc --std=c99 -Og -g $(BS_LDFLAGS) $(LDFLAGS) -o $@ $(BS_CFLAGS) $(SRC) $(LIBS)
+
 $(OBJ) $(WOBJ): config.h common.h config.mk
 
 config.h:

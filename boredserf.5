@@ -54,7 +54,7 @@ The file may have up to one rule per line. Contiguous whitespace is ignored, but
 also known in WebKit as `if-url'. This applies to each prospective request that the browser may load for each page. Note that rules with this field are not visible in \fBboredserf\fR but are still used to block content. Rudimentary regular expressions are allowed, except those including whitespace (although '%20' is not seen as whitespace).
 .TP
 .B browser-uri \fR(required)
-also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBboredserf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit.
+also known in WebKit as `if-top-url'. This applies to the URI that would be seen in the navigation bar. \fBboredserf\fR's interactive editor will only recognize this field if it is a plain-text domain name. However, regular expressions will still be read and passed to WebKit. It is generally assumed that the URI has a scheme of either HTTP or HTTPS, and that is specifies a hostname (authority). As a special case, local files are given an `browser-uri' of \fIfile\fR.
 .TP
 .B first-party \fR(required)
 a list of characters in [dcfivmsrpDCFIVMSRP]. As before, lowercase letters block connections, uppercase letters allow them, and absent characters inherit other rules.
@@ -66,7 +66,18 @@ Later rules take precedence over earlier rules.
 .TP
 Lines beginning with a '#', optionally preceded by spaces and/or tabs, and lines with less than three or more than four fields, including blank lines, are ignored and may be used for comments.
 .TP
-For example,
+The automatically generated rules available for manipulation within \fBboredserf\fR may be found to be over-inclusive. A rule created for `example1.com' will also apply to the page `https://example2.com/about/example1.com/'. This is due to keeping the rules as simple and human-readable as possible. To be more precise, edit the \fIfilter.rules\fR file from something like:
+example.com 1CS 3I
+.TP
+to something like:
+https://example.com/ 1CS 3I
+.TP
+or, more precisely and flexibly:
+^https?://[^/]*\\\\.example\\\\.com/ 1CS 3I
+.TP
+If those extra symbols are not familiar, see \fBregex\fR(7).
+.SH
+Examples
 .TP
 .B * 1cfivmsrp 3cfivmsrp
 will block all requests other than for documents, on all webpages.

@@ -11,22 +11,16 @@
 char *filterrulesjson;
 FilterRule *filterrules;
 WebKitUserContentFilter *filter;
-WebKitUserContentFilterStore *filterstore = NULL;
+WebKitUserContentFilterStore *filterstore;
 
 void
 filter_read(void)
 {
-	FilterRule *rule;
 	FILE *file;
 	char *buffer;
-	char *field;
-	char *desc;
 	int buflen;
 	int ret;
-	int pos;
 
-	if (NULL != filterrules)
-		filter_freeall();
 	if (NULL == filterrulefile || NULL == filterrule_loc)
 		return;
 	file = fopen(filterrule_loc->str, "r");
@@ -47,48 +41,127 @@ filter_read(void)
 		return;
 	}
 
+	filter_parse(buffer);
+	free(buffer);
+}
+
+void
+filter_parse(char *text)
+{
+	GScanner *scan;
+	FilterRule *rule;
+	char *field1;
+	char *field2;
+	char *field3;
+	char *field4;
+	char *line;
+	char *lineend;
+	char *comment;
+	char *allowed =
+		"abcdefghijklmnopqrstuvwxyz"
+		"~1!2@3#4$5%6^7&8*9(0)-_=+[{]},<.>;:/\\|?"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	int ret;
+	int pos;
+
+	nullguard(text);
+	if (NULL != filterrules)
+		filter_freeall();
 	rule = filterrules = malloc(sizeof(FilterRule));
 	nullguard(rule);
 	filter_ruleinit(rule);
-	field = buffer;
-	while (field) {
-		switch (fieldcount(field, linelen(field))) {
-		case 4: /* fall through */
-			rule->ifurl = getfield(&field);
-		case 3:
-			rule->iftopurl = getfield(&field);
-			desc = getfield(&field);
-			filter_texttobits(desc, strlen(desc), &rule->p1);
-			free(desc);
-			desc = getfield(&field);
-			filter_texttobits(desc, strlen(desc), &rule->p3);
-			free(desc);
-			break;
-		case 0:
-			rule->comment = malloc(1);
-			nullguard(rule->comment);
-			rule->comment[0] = 0;
-			++field;
-			break;
-		case -1:
-			field = NULL;
-			break;
-		default:
-			rule->comment = strndup(field, linelen(field));
-			field += linelen(field);
-			field = nextfield(field);
-			break;
+
+	scan = g_scanner_new(NULL);
+	scan->config->cset_skip_characters = " \t";
+	scan->config->cset_identifier_first = allowed;
+	scan->config->cset_identifier_nth = allowed;
+	scan->config->scan_identifier_1char = TRUE;
+
+	lineend = line = text;
+	while (0 != *line) {
+		field1 = field2 = field3 = field4 = NULL;
+		while (0 != *lineend && '\n' != *lineend)
+			++lineend;
+
+		/* explicit comments begin with # after any blankspace */
+		comment = line;
+		while (comment < lineend) {
+			switch (*comment) {
+			case '#':
+				goto filterparse_next_rule;
+			case '\t': /* fall through */
+			case ' ':
+				++comment;
+				break;
+			default:
+				comment = lineend;
+				break;
+			}
 		}
+
+		g_scanner_input_text(scan, line, lineend - line);
+
+		if (G_TOKEN_IDENTIFIER == g_scanner_get_next_token(scan))
+			field1 = strdup(scan->value.v_identifier);
+		else
+			goto filterparse_next_rule;
+
+		if (G_TOKEN_IDENTIFIER == g_scanner_get_next_token(scan))
+			field2 = strdup(scan->value.v_identifier);
+		else
+			goto filterparse_next_rule;
+
+		if (G_TOKEN_IDENTIFIER == g_scanner_get_next_token(scan))
+			field3 = strdup(scan->value.v_identifier);
+		else
+			goto filterparse_next_rule;
+
+		if (G_TOKEN_IDENTIFIER == g_scanner_get_next_token(scan))
+			field4 = strdup(scan->value.v_identifier);
+		else
+			goto filterparse_next_rule;
+
+		/* additional tokens indicate more than four fields */
+		if (G_TOKEN_IDENTIFIER == g_scanner_get_next_token(scan)) {
+			freeandnull(field3);
+			freeandnull(field4);
+		}
+
+filterparse_next_rule:
+		if ('\n' == *lineend)
+			++lineend;
+		if (field4) {
+			rule->ifurl = field1;
+			rule->iftopurl = field2;
+			filter_texttobits(field3, strlen(field3), &rule->p1);
+			filter_texttobits(field4, strlen(field4), &rule->p3);
+			freeandnull(field3);
+			freeandnull(field4);
+		} else if (field3) {
+			rule->iftopurl = field1;
+			filter_texttobits(field2, strlen(field2), &rule->p1);
+			filter_texttobits(field3, strlen(field3), &rule->p3);
+			freeandnull(field2);
+			freeandnull(field3);
+		} else {
+			/* anything not a rule is implicitly a comment */
+			rule->comment = strndup(line, lineend - line);
+			freeandnull(field1);
+			freeandnull(field2);
+			freeandnull(field3);
+			freeandnull(field4);
+		}
+
 		rule->next = malloc(sizeof(FilterRule));
-		nullguard(rule->next);
 		filter_ruleinit(rule->next);
 		rule->next->prev = rule;
 		rule = rule->next;
+		line = lineend;
 	}
-
-	rule = rule->prev;
-	freeandnull(rule->next);
-	free(buffer);
+	if (rule->prev && !rule->iftopurl && !rule->comment) {
+		rule = rule->prev;
+		freeandnull(rule->next);
+	}
 }
 
 void
@@ -114,11 +187,26 @@ filter_write(void)
 	nullguard(output);
 
 	while (NULL != rule) {
+		/* comments */
 		ptr = rule->comment;
 		if (NULL != ptr) {
 			if (0 != rule->comment[0])
 				fwrite(ptr, 1, strlen(ptr), output);
-			fwrite("\n", 1, 1, output);
+			rule = rule->next;
+			continue;
+		}
+
+		/* incomplete rules: without URIs or types */
+		if (!rule->ifurl && !rule->iftopurl) {
+			rule = rule->next;
+			continue;
+		}
+		if (
+			0 == rule->p1.allow &&
+			0 == rule->p1.block &&
+			0 == rule->p3.allow &&
+			0 == rule->p3.block
+		) {
 			rule = rule->next;
 			continue;
 		}
@@ -135,17 +223,6 @@ filter_write(void)
 		else
 			fwrite("*", 1, 1, output);
 		fwrite(" ", 1, 1, output);
-
-		if (
-			0 == rule->p1.allow &&
-			0 == rule->p1.block &&
-			0 == rule->p3.allow &&
-			0 == rule->p3.block
-		) {
-			fwrite("1 3\n", 1, 4, output);
-			rule = rule->next;
-			continue;
-		}
 
 		hidep1 = rule->p1.hide;
 		hidep3 = rule->p3.hide;
@@ -192,11 +269,10 @@ filter_apply(Client *c)
 
 	if (NULL == filterrulefile || NULL == filterrules)
 		return;
-
 	nullguard(c);
-
 	if (!curconfig[ContentFilter].val.i)
 		return;
+
 	filter_updatejson();
 	if (NULL == filterrulesjson)
 		return;
@@ -204,11 +280,11 @@ filter_apply(Client *c)
 	jsonsz = strlen(filterrulesjson);
 	json = g_bytes_new(filterrulesjson, jsonsz);
 
-	if (NULL == filterstore) {
-		filterstore = webkit_user_content_filter_store_new(
-			filterdir_loc->str
-		);
-	}
+	/* TODO: doesn't seem necessary to create a new one just to load
+	 * different rules, but from behavior this seems required */
+	filterstore = webkit_user_content_filter_store_new(
+		filterdir_loc->str
+	);
 	webkit_user_content_filter_store_save(
 		filterstore,
 		filterid,
@@ -292,8 +368,11 @@ filter_reset(FilterRule *r)
 void
 filter_stripper(Client *c, const char *uri)
 {
-	FilterRule *rule = filter_get(uri);
-	nullguard(rule);
+	FilterRule *rule;
+	nullguard(uri);
+	if (0 == strlen(uri))
+		return;
+	rule = filter_get(uri);
 	if (0 == rule->p1.block)
 		return;
 	if (rule->p1.block & 1<<FilterCSS)
@@ -466,6 +545,7 @@ FilterRule*
 filter_get(const char *fordomain)
 {
 	enum { maxlen = 2048 };
+	FilterRule *prev;
 	FilterRule *rule = filterrules;
 	char shorter[maxlen];
 
@@ -474,6 +554,7 @@ filter_get(const char *fordomain)
 		filterrules = malloc(sizeof(FilterRule));
 		nullguard(filterrules, NULL);
 		filter_ruleinit(filterrules);
+		return filterrules;
 	}
 
 	if (NULL != strchr(fordomain, '/'))
@@ -483,30 +564,28 @@ filter_get(const char *fordomain)
 
 	while (NULL != rule) {
 		if (NULL != rule->ifurl || NULL != rule->comment) {
-			if (NULL == rule->next)
-				break;
+			prev = rule;
 			rule = rule->next;
 			continue;
 		}
 		if (NULL == rule->iftopurl) {
-			filterrules->iftopurl = strdup(shorter);
+			rule->iftopurl = strdup(shorter);
 			return rule;
 		}
 		if (0 == strcmp(shorter, rule->iftopurl)) {
 			rule->dirtydisplay = rule->dirtyjson = 1;
 			return rule;
 		}
-		if (NULL == rule->next)
-			break;
+		prev = rule;
 		rule = rule->next;
 	}
 
+	rule = prev;
 	rule->next = malloc(sizeof(FilterRule));
 	nullguard(rule->next, NULL);
 	filter_ruleinit(rule->next);
 	rule->next->iftopurl = strdup(shorter);
 	rule->next->prev = rule;
-
 	return rule->next;
 }
 
@@ -734,7 +813,6 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 {
 	int offset = 0;
 	int len = 0;
-	int start = 0;
 	int end = 0;
 
 	nullguard(domain);
@@ -748,23 +826,30 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 		return;
 	}
 
-	while (offset < len && ':' != uri[offset++]);
-	while (offset < len && '/' == uri[offset++]);
+	if (0 == strncmp("file://", uri, 7)) {
+		strcpy(domain, "file");
+		return;
+	} else if (0 == strncmp("http", uri, 4)) {
+		offset += 4;
+	}
+	if ('s' == uri[offset])
+		++offset;
+	if (0 == strncmp("://", &uri[offset], 3))
+		offset += 3;
 	if (offset >= len) {
 		fprintf(stderr, "%s found malformed URI.\n", __func__);
 		return;
 	}
 
-	start = offset - 1;
-	end = strchr(uri + start, '/') - uri;
-	if (0 >= end || end <= start) {
+	end = strchr(uri + offset, '/') - uri;
+	if (0 >= end || end <= offset) {
 		fprintf(stderr, "%s failed to get substring.\n", __func__);
 		return;
 	}
 
-	len = end - start;
+	len = end - offset;
 	if (len <= maxdomlen) {
-		strncpy(domain, uri + start, len);
+		strncpy(domain, uri + offset, len);
 		if (len < maxdomlen)
 			domain[len] = 0;
 	} else {
@@ -772,127 +857,6 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 	}
 
 	return;
-}
-
-int
-lentodelim(const char *in, const char *delims, int delimsz)
-{
-	char testnull = 0;
-	const char *test;
-	int count = 0;
-	int testsz;
-	int i;
-
-	nullguard(in, -1);
-	if (NULL == delims || 0 == delimsz) {
-		test = &testnull;
-		testsz = 1;
-	} else {
-		test = delims;
-		testsz = delimsz;
-	}
-	if (0 >= testsz)
-		return 0;
-
-	while (1) {
-		for (i = 0; i < testsz; ++i) {
-			if (in[count] == test[i])
-				return count;
-		}
-		++count;
-	}
-	return count;
-}
-
-int
-linelen(const char *in)
-{
-	const char delims[] = "\n";
-	return lentodelim(in, delims, 2);
-}
-
-int
-fieldlen(const char *in)
-{
-	const char delims[] = " \t\n";
-	return lentodelim(in, delims, 4);
-}
-
-int
-fieldcount(const char *in, int linelen)
-{
-	int isblank = 1;
-	int fields = 0;
-	int pos = 0;
-	int i;
-
-	nullguard(in, -1);
-
-	if ('#' == in[0])
-		return 0;
-	while (pos < linelen) {
-		switch (in[pos++]) {
-		case 0:
-			return fields ? fields : -1;
-		case '\n':
-			return fields;
-		case ' ':  /* fall through */
-		case '\t':
-			isblank = 1;
-			continue;
-		default:
-			if (!isblank)
-				continue;
-			isblank = 0;
-			++fields;
-			continue;
-		}
-	}
-	return fields;
-}
-
-char*
-nextfield(char *in)
-{
-	int pos = 0;
-	int isblank = 0;
-	if (NULL == in)
-		return NULL;
-	while (1) {
-		switch (in[pos]) {
-		case 0: /* fall through */
-			return NULL;
-		case ' ':  /* fall through */
-		case '\t':
-			isblank = 1;
-			break;
-		case '\n':
-			if (in[++pos])
-				return in + pos;
-			else
-				return NULL;
-			break;
-		default:
-			if (isblank)
-				return in + pos;
-			break;
-		}
-		++pos;
-	}
-	return NULL;
-}
-
-char*
-getfield(char **in)
-{
-	char *result;
-	int len = 0;
-	nullguard(in, NULL);
-	nullguard(*in, NULL);
-	len = fieldlen(*in);
-	result = strndup(*in, len ? len : 1);
-	*in = nextfield(*in);
-	return result;
 }
 
 void
