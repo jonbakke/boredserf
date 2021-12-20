@@ -124,7 +124,6 @@ typedef void(*WebKit_JavaScript_cb)(GObject *s, GAsyncResult *r, gpointer d);
 /* boredserf */
 void usage(void);
 void setup(void);
-void sigchld(int doinstall);
 void sighup(int unused);
 /* GString* in & out functions may modify input to produce output */
 GString* buildfile(const char* input);

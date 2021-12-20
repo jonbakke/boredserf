@@ -126,8 +126,6 @@ setup(void)
 	GdkDisplay *gdpy;
 	int i, j;
 
-	/* clean up any zombies immediately */
-	sigchld(0);
 	if (signal(SIGHUP, sighup) == SIG_ERR)
 		die("Could not install SIGHUP handler.");
 
@@ -255,15 +253,6 @@ setup(void)
 	pagefiles = NULL;
 	empty_gs = g_string_new(NULL);
 	blank_gs = g_string_new("about:blank");
-}
-
-void
-sigchld(int unused)
-{
-	if (signal(SIGCHLD, sigchld) == SIG_ERR)
-		die("Could not install SIGCHLD handler.");
-	while (waitpid(-1, NULL, WNOHANG) > 0)
-		;
 }
 
 void
