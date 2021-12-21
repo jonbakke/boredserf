@@ -196,7 +196,7 @@ mark_test(const char *uri)
 				snprintf(
 					result,
 					ressz,
-					mark[i].uri, 
+					mark[i].uri,
 					uri + strlen(maybetoken) + 1
 				);
 				return result;
