@@ -11,25 +11,6 @@
 #include "shellish.h"
 
 char*
-sh_expand(char *str)
-{
-	GString *composed = g_string_new("echo ");
-	char *result;
-	nullguard(str, NULL);
-	g_string_append(composed, str);
-
-	const char *command[] = {
-		"/bin/sh",
-		"sh", "-c", composed->str,
-		NULL
-	};
-
-	result = cmd(NULL, command);
-	g_string_free(composed, TRUE);
-	return result;
-}
-
-char*
 filetostr(char *filename)
 {
 	FILE *file;

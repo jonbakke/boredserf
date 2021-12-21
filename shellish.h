@@ -1,9 +1,5 @@
 /* This file is part of boredserf. */
 
-/* char* sh_expand(char *str)
- * Passes str to /bin/sh for expansion, returning the result.
- * Result is malloc'd. */
-
 /* char* filetostr(char *filename)
  * Reads contents of filename into returned string;
  * relative paths (e.g., ~/file) must first be expanded with sh_expand().
@@ -26,7 +22,6 @@
 extern char winid[];
 extern char **environ;
 
-char* sh_expand(char *str);
 char* filetostr(char *filename);
 char* cmd(const char *input, const char *command[]);
 

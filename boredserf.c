@@ -301,15 +301,14 @@ buildpath(const char *input)
 	char *rp;
 
 	nullguard(input, NULL);
-	if (g_str_has_prefix(input, "~"))
-		path = shellexpand(g_string_new(input));
-	else
-		return g_string_new(input);
+	path = g_string_new(input);
+	if (g_str_has_prefix(input, "~/"))
+		g_string_replace(path, "~", g_get_home_dir(), 1);
 
 	/* create directory */
 	if (0 > g_mkdir_with_parents(path->str, 0700)) {
-		g_printerr("For %s: ", input);
-		die("Could not access directory.");
+		g_printerr("For %s: could not access path.\n", input);
+		g_printerr("Disabling associated functionality.\n");
 	}
 
 	rp = realpath(path->str, NULL);
@@ -317,19 +316,6 @@ buildpath(const char *input)
 	path = g_string_assign(path, rp);
 	g_free(rp);
 	return path;
-}
-
-GString*
-shellexpand(GString *expr)
-{
-	char *cmdret;
-
-	nullguard(expr, NULL);
-	cmdret = sh_expand(expr->str);
-	nullguard(cmdret, expr);
-	expr = g_string_assign(expr, cmdret);
-	g_free(cmdret);
-	return expr;
 }
 
 Client*
@@ -376,10 +362,9 @@ loaduri(Client *c, const Arg *a)
 		url = input;
 	} else {
 		url = g_string_new(NULL);
-		if (g_str_has_prefix(input->str, "~"))
-			path = shellexpand(input);
-		else
-			path = input;
+		path = input;
+		if (g_str_has_prefix(input->str, "~/"))
+			g_string_replace(path, "~", g_get_home_dir(), 1);
 
 		if (
 			/* stat returns 0 on success */
@@ -1153,7 +1138,7 @@ setcert(Client *c)
 
 	if (!(cert = g_tls_certificate_new_from_file(file, NULL))) {
 		g_string_free(uri, TRUE);
-		g_printerr("For %s: ", file);
+		g_printerr("For %s: \n", file);
 		err("Could not read certificate file.");
 	}
 
@@ -1200,7 +1185,7 @@ setstyle(Client *c, const char *file)
 	gchar *style;
 
 	if (!g_file_get_contents(file, &style, NULL, NULL)) {
-		g_printerr("For %s: ", file);
+		g_printerr("For %s: \n", file);
 		err("Could not read style file.");
 	}
 
@@ -1322,7 +1307,7 @@ spawn(Client *c, const Arg *a)
 		close(spair[1]);
 		setsid();
 		execvp(((char **)a->v)[0], (char **)a->v);
-		g_printerr("%s: execvp %s", argv0, ((char **)a->v)[0]);
+		g_printerr("%s: execvp %s\n", argv0, ((char **)a->v)[0]);
 		perror(" failed");
 		exit(1);
 	}

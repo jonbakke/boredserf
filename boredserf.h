@@ -122,7 +122,6 @@ void sighup(int unused);
 /* GString* in & out functions may modify input to produce output */
 GString* buildfile(const char* input);
 GString* buildpath(const char* input);
-GString* shellexpand(GString *expr);
 Client *newclient(Client *c);
 void loaduri(Client *c, const Arg *a);
 void updateenv(Client *c);
