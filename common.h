@@ -45,8 +45,7 @@
 #define nullguard(x, ...) \
 	do {\
 		if (NULL == x) {\
-			fprintf( \
-				stderr, \
+			g_printerr(\
 				"Unexpected null at %s:%d.\n", \
 				__FILE__, \
 				__LINE__ \

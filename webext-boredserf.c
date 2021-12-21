@@ -27,12 +27,12 @@ msgboredserf(guint64 pageid, const char *s)
 
 	if ((ret = snprintf(msg, sizeof(msg), "%c%s", pageid, s))
 	    >= sizeof(msg)) {
-		fprintf(stderr, "webext: msg: message too long: %d\n", ret);
+		g_printerr("webext: msg: message too long: %d\n", ret);
 		return;
 	}
 
 	if (send(sock, msg, ret, 0) < 0)
-		fprintf(stderr, "webext: error sending: %s\n", msg+1);
+		g_printerr("webext: error sending: %s\n", msg+1);
 }
 
 static gboolean
@@ -48,16 +48,17 @@ readsock(GIOChannel *s, GIOCondition c, gpointer unused)
 	if (g_io_channel_read_chars(s, msg, sizeof(msg), &msgsz, &gerr) !=
 	    G_IO_STATUS_NORMAL) {
 		if (gerr) {
-			fprintf(stderr, "webext: error reading socket: %s\n",
-			        gerr->message);
+			g_printerr(
+				"webext: error reading socket: %s\n",
+			        gerr->message
+			);
 			g_error_free(gerr);
 		}
 		return TRUE;
 	}
 
 	if (msgsz < 2) {
-		fprintf(stderr, "webext: readsock: message too short: %d\n",
-		        msgsz);
+		g_printerr("webext: readsock: message too short: %d\n", msgsz);
 		return TRUE;
 	}
 

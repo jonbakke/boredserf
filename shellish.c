@@ -41,7 +41,7 @@ filetostr(char *filename)
 
 	printf("filetostr %s\n", filename);
 	if (!(file = fopen(filename, "r"))) {
-		fprintf(stderr, "With %s: ", filename);
+		g_printerr("With %s: ", filename);
 		err("Unrecognized filename.", NULL);
 	}
 	fseek(file, 0, SEEK_END);

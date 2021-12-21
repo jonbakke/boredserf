@@ -14,7 +14,7 @@ _die(char *msg, int line)
 void
 _err(char *msg, int line)
 {
-	fprintf(stderr, "At %d: %s\n", line, msg);
+	g_printerr("At %d: %s\n", line, msg);
 }
 
 void

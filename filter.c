@@ -36,7 +36,7 @@ filter_read(void)
 	ret = fread(buffer, 1, buflen, file);
 	fclose(file);
 	if (ret != buflen) {
-		fprintf(stderr, "Incomplete read of rules file.\n");
+		g_printerr("Incomplete read of rules file.\n");
 		free(buffer);
 		return;
 	}
@@ -242,9 +242,8 @@ filter_write(void)
 
 		fwrite("3", 1, 1, output);
 		ptr = rule->p3.display;
-		if (NULL != ptr) {
+		if (NULL != ptr)
 			fprintf(output, "%s", ptr);
-		}
 		fwrite("\n", 1, 1, output);
 
 		if (hidep1 || hidep3) {
@@ -307,7 +306,7 @@ filter_apply_cb(GObject *src_obj, GAsyncResult *res, gpointer data)
 		&err
 	);
 	if (err) {
-		fprintf(stderr, err->message);
+		g_printerr(err->message);
 		return;
 	}
 	webkit_user_content_manager_add_filter(
@@ -822,7 +821,7 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 	}
 	len = strlen(uri);
 	if (0 > len) {
-		fprintf(stderr, "%s could not get URI length.\n", __func__);
+		g_printerr("%s could not get URI length.\n", __func__);
 		return;
 	}
 
@@ -837,13 +836,13 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 	if (0 == strncmp("://", &uri[offset], 3))
 		offset += 3;
 	if (offset >= len) {
-		fprintf(stderr, "%s found malformed URI.\n", __func__);
+		g_printerr("%s found malformed URI.\n", __func__);
 		return;
 	}
 
 	end = strchr(uri + offset, '/') - uri;
 	if (0 >= end || end <= offset) {
-		fprintf(stderr, "%s failed to get substring.\n", __func__);
+		g_printerr("%s failed to get substring.\n", __func__);
 		return;
 	}
 
@@ -853,7 +852,7 @@ uritodomain(const char *uri, char *domain, int maxdomlen)
 		if (len < maxdomlen)
 			domain[len] = 0;
 	} else {
-		fprintf(stderr, "Domain exceeds max length for: %s\n", uri);
+		g_printerr("Domain exceeds max length for: %s\n", uri);
 	}
 
 	return;
@@ -983,9 +982,11 @@ guardwordsize(int modify)
 {
 #ifdef __WORDSIZE
 	if (modify >= __WORDSIZE) {
-		fprintf(stderr, "modify bits exceed word size; "
+		g_printerr(
+			"modify bits exceed word size; "
 			"check the enum FilterCommand value passed "
-			"to filtercmd()\n");
+			"to filtercmd()\n"
+		);
 		return 1;
 	}
 #endif /* __WORDSIZE */

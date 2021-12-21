@@ -186,8 +186,7 @@ setup(void)
 				NULL
 			);
 		} else {
-			fprintf(
-				stderr,
+			g_printerr(
 				"Could not compile regex: %s\n",
 				certs[i].regex
 			);
@@ -214,8 +213,7 @@ setup(void)
 					NULL
 				);
 			} else {
-				fprintf(
-					stderr,
+				g_printerr(
 					"Could not compile regex: %s\n",
 					styles[i].regex
 				);
@@ -235,8 +233,7 @@ setup(void)
 				REG_EXTENDED
 			)
 		) {
-			fprintf(
-				stderr,
+			g_printerr(
 				"Could not compile regex: %s\n",
 				uriparams[i].uri
 			);
@@ -286,7 +283,7 @@ buildfile(const char *input)
 	g_free(basename_c);
 
 	if (!(file = fopen(path_c, "a"))) {
-		fprintf(stderr, "For %s: ", path_c);
+		g_printerr("For %s: ", path_c);
 		die("Could not open file.");
 	}
 
@@ -311,7 +308,7 @@ buildpath(const char *input)
 
 	/* create directory */
 	if (0 > g_mkdir_with_parents(path->str, 0700)) {
-		fprintf(stderr, "For %s: ", input);
+		g_printerr("For %s: ", input);
 		die("Could not access directory.");
 	}
 
@@ -614,8 +611,7 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 	);
 	if (NULL == js_res) {
 		nullguard(error, NULL);
-		fprintf(
-			stderr,
+		g_printerr(
 			"Error running JavaScript: %s\n",
 			error->message
 		);
@@ -631,8 +627,7 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 			jsc_value_get_context(value)
 		);
 		if (exception) {
-			fprintf(
-				stderr,
+			g_printerr(
 				"Error running WebKit JavaScript: %s\n",
 				jsc_exception_get_message(exception)
 			);
@@ -640,10 +635,7 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 			result = jsc_value_to_string(value);
 		}
 	} else {
-		fprintf(
-			stderr,
-			"WebKit JavaScript returned unexpected value.\n"
-		);
+		g_printerr("WebKit JavaScript returned unexpected value.\n");
 	}
 	webkit_javascript_result_unref(js_res);
 	return result;
@@ -1161,7 +1153,7 @@ setcert(Client *c)
 
 	if (!(cert = g_tls_certificate_new_from_file(file, NULL))) {
 		g_string_free(uri, TRUE);
-		fprintf(stderr, "For %s: ", file);
+		g_printerr("For %s: ", file);
 		err("Could not read certificate file.");
 	}
 
@@ -1208,7 +1200,7 @@ setstyle(Client *c, const char *file)
 	gchar *style;
 
 	if (!g_file_get_contents(file, &style, NULL, NULL)) {
-		fprintf(stderr, "For %s: ", file);
+		g_printerr("For %s: ", file);
 		err("Could not read style file.");
 	}
 
@@ -1330,7 +1322,7 @@ spawn(Client *c, const Arg *a)
 		close(spair[1]);
 		setsid();
 		execvp(((char **)a->v)[0], (char **)a->v);
-		fprintf(stderr, "%s: execvp %s", argv0, ((char **)a->v)[0]);
+		g_printerr("%s: execvp %s", argv0, ((char **)a->v)[0]);
 		perror(" failed");
 		exit(1);
 	}
@@ -1654,8 +1646,7 @@ readsock(GIOChannel *s, GIOCondition ioc, gpointer unused)
 		)
 	){
 		if (gerr) {
-			fprintf(
-				stderr,
+			g_printerr(
 				"boredserf: error reading socket: %s\n",
 				gerr->message
 			);
@@ -1665,7 +1656,7 @@ readsock(GIOChannel *s, GIOCondition ioc, gpointer unused)
 	}
 
 	if (msgsz < 2) {
-		fprintf(stderr, "boredserf: message too short: %d\n", msgsz);
+		g_printerr("boredserf: message too short: %d\n", msgsz);
 		return TRUE;
 	}
 
@@ -2266,8 +2257,7 @@ webprocessterminated(
 	Client *c
 )
 {
-	fprintf(
-		stderr, "web process terminated: %s\n",
+	g_printerr("web process terminated: %s\n",
 		r == WEBKIT_WEB_PROCESS_CRASHED
 		? "crashed"
 		: "no memory"
@@ -2573,13 +2563,12 @@ msgext(Client *c, char type, const Arg *a)
 		)) &&
 		sizeof(msg) <= ret
 	) {
-		fprintf(stderr, "boredserf: message too long: %d\n", ret);
+		g_printerr("boredserf: message too long: %d\n", ret);
 		return;
 	}
 
 	if (send(spair[0], msg, ret, 0) != ret) {
-		fprintf(
-			stderr,
+		g_printerr(
 			"boredserf: error sending: %u%c%d (%d)\n",
 			c->pageid,
 			type,
