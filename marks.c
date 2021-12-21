@@ -68,7 +68,6 @@ mark_read(BSMark **mark_out, int *msz_out)
 
 		/* get BSMark for this line */
 		mark_parse(line, &mark[mpos]);
-		printf("token: %s -- uri: %s\n", mark[mpos].token, mark[mpos].uri);
 		if (NULL != mark[mpos].uri)
 			++mpos;
 	}
