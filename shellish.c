@@ -52,7 +52,7 @@ filetostr(char *filename)
 	result[len] = 0;
 	if (len != fread(result, 1, len, file)) {
 		fclose(file);
-		free(result);
+		g_free(result);
 		err("Failed to read file.", NULL);
 	}
 
@@ -114,7 +114,7 @@ cmd(const char *input, const char *command[])
 	};
 	bufpos += retsz;
 	if (0 >= bufpos) {
-		free(buf);
+		g_free(buf);
 		return NULL;
 	}
 
@@ -126,7 +126,7 @@ cmd(const char *input, const char *command[])
 	result = g_malloc(bufpos + 1);
 	result[bufpos] = 0;
 	strncpy(result, buf, bufpos);
-	free(buf);
+	g_free(buf);
 	waitpid(-1, NULL, WNOHANG);
 	return result;
 }

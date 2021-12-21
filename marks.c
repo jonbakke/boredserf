@@ -59,7 +59,7 @@ mark_read(BSMark **mark_out, int *msz_out)
 		lend = ((int*)lineend->data)[lnum];
 		lsz = lend - lstart;
 		if (NULL != line)
-			free(line);
+			g_free(line);
 		line = g_malloc(lsz + 1);
 		if(lsz != fread(line, 1, lsz, file))
 			err("Could not read marks file.");
@@ -131,7 +131,7 @@ mark_parse(char *line, BSMark *mark)
 		goto markparse_cleanup;
 
 	if (field1 && 0 == strcmp("mark", field1)) {
-		free(field1);
+		g_free(field1);
 		mark->token = field2;
 		mark->uri = field3;
 

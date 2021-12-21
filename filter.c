@@ -36,12 +36,12 @@ filter_read(void)
 	fclose(file);
 	if (ret != buflen) {
 		g_printerr("Incomplete read of rules file.\n");
-		free(buffer);
+		g_free(buffer);
 		return;
 	}
 
 	filter_parse(buffer);
-	free(buffer);
+	g_free(buffer);
 }
 
 void
@@ -323,7 +323,7 @@ filter_freeall(void)
 		freeandnull(rule->iftopurl);
 		freeandnull(rule->activeuri);
 		filterrules = rule->next;
-		free(rule);
+		g_free(rule);
 	}
 }
 
@@ -782,7 +782,7 @@ filter_setresourcenames(int types, char **names)
 
 	nullguard(names);
 	if (NULL != *names) {
-		free(*names);
+		g_free(*names);
 		*names = NULL;
 	}
 

@@ -315,7 +315,7 @@ buildpath(const char *input)
 	rp = realpath(path->str, NULL);
 	nullguard(rp, path);
 	path = g_string_assign(path, rp);
-	free(rp);
+	g_free(rp);
 	return path;
 }
 
@@ -328,7 +328,7 @@ shellexpand(GString *expr)
 	cmdret = sh_expand(expr->str);
 	nullguard(cmdret, expr);
 	expr = g_string_assign(expr, cmdret);
-	free(cmdret);
+	g_free(cmdret);
 	return expr;
 }
 
@@ -393,7 +393,7 @@ loaduri(Client *c, const Arg *a)
 			g_string_append(url, path_c);
 		}
 		g_string_free(path, TRUE);
-		free(path_c);
+		g_free(path_c);
 	}
 
 	setatom(c, AtomUri, url);
@@ -659,7 +659,7 @@ savepagefile(const char *name, const char *contents)
 
 	file = fopen(filename, "w+");
 	if (NULL == file) {
-		free(filename);
+		g_free(filename);
 		nullguard(file);
 	}
 	fwrite(contents, 1, strlen(contents), file);
@@ -1346,7 +1346,7 @@ destroyclient(Client *c)
 		p->next = c->next;
 	else
 		clients = c->next;
-	free(c);
+	g_free(c);
 }
 
 void
@@ -1368,7 +1368,7 @@ cleanup(void)
 			NULL
 		};
 		cmd(NULL, rmrf);
-		free(command);
+		g_free(command);
 	}
 
 	close(spair[0]);
@@ -2431,7 +2431,7 @@ i_seturi(Client *c, const Arg *a)
 	if (NULL != result_c) {
 		result_gs = g_string_new(result_c);
 		setatom(c, AtomGo, result_gs);
-		free(result_c);
+		g_free(result_c);
 		g_string_free(result_gs, TRUE);
 	}
 }
