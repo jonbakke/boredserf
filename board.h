@@ -29,6 +29,7 @@ enum BoredBoard {
 	boardtype_goto,
 	boardtype_mark,
 	boardtype_local,
+	boardtype_go_relative,
 };
 
 void board(Client *c, const Arg *a);

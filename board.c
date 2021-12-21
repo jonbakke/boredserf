@@ -5,10 +5,27 @@
 void
 board(Client *c, const Arg *a)
 {
-	if (0 > c->board_flags && a) {
+	/* reset flags if c->board_flags is zero or negative */
+	if (0 >= c->board_flags && a) {
 		c->board_flags = 0;
 		c->board_flags |= 1 << a->i;
 	}
+
+	/* handle special cases */
+	if (a) {
+		switch (a->i) {
+		case boardtype_go_relative:
+			c->board_flags &= ~(1 << a->i);
+			c->board_flags |= 1 << boardtype_goto;
+			if (c->board_input)
+				g_string_free(c->board_input, TRUE);
+			c->board_input = geturi(c);
+			break;
+		default:
+			break;
+		}
+	}
+
 	replacekeytree(c, board_handler);
 	board_status(c, NULL, NULL);
 }
@@ -129,6 +146,8 @@ board_status(Client *c, GString *input, GString *match)
 			g_string_append_c(status, inactive[i]);
 	}
 	g_string_append(status, ": ");
+
+	/* add input */
 	if (input && input->len) {
 		g_string_append(status, input->str);
 	} else if (c->board_flags & 1 << boardtype_find) {
@@ -136,8 +155,16 @@ board_status(Client *c, GString *input, GString *match)
 		if (existing)
 			g_string_append(status, existing);
 	}
+
+	/* add match */
 	if (match && match->len)
 		g_string_append(status, match->str);
+
+	/* if neither input nor match, try c->board_input */
+	if (!input && !match && c->board_input)
+		g_string_append(status, c->board_input->str);
+
+	/* apply */
 	gtk_window_set_title(GTK_WINDOW(c->win), status->str);
 	g_string_free(status, TRUE);
 }
