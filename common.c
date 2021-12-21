@@ -20,8 +20,6 @@ void
 _ifnotnullfreeandnull(void **ptr)
 {
 	nullguard(ptr);
-	if (NULL == *ptr)
-		return;
-	free(*ptr);
+	g_free(*ptr);
 	*ptr = NULL;
 }
