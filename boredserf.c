@@ -436,7 +436,7 @@ updateenv(Client *c)
 		int pos = 0;
 		nullguard(cachedir_loc);
 		len = cachedir_loc->len + 12;
-		pagefiles = malloc(len);
+		pagefiles = g_malloc(len);
 		pagefiles[pos] = 0;
 		strncat(pagefiles, cachedir_loc->str, len);
 		strncat(pagefiles, "/tmp-XXXXXX", len - strlen(pagefiles));
@@ -651,7 +651,7 @@ savepagefile(const char *name, const char *contents)
 	if (!name || !contents || !pagefiles)
 		return;
 
-	filename = malloc(strlen(pagefiles) + strlen(name) + 2);
+	filename = g_malloc(strlen(pagefiles) + strlen(name) + 2);
 	filename[0] = 0;
 	strcat(filename, pagefiles);
 	strcat(filename, "/");
@@ -1357,7 +1357,7 @@ cleanup(void)
 
 	if (NULL != pagefiles) {
 		char *cmd_pre = "rm -rf ";
-		char *command = malloc(
+		char *command = g_malloc(
 			strlen(cmd_pre) + strlen(pagefiles) + 1
 		);
 		command[0] = 0;

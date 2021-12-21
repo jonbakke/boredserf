@@ -28,8 +28,7 @@ filter_read(void)
 
 	fseek(file, 0, SEEK_END);
 	buflen = ftell(file);
-	buffer = malloc(buflen + 1);
-	nullguard(buffer);
+	buffer = g_malloc(buflen + 1);
 	buffer[buflen] = 0;
 	rewind(file);
 
@@ -67,8 +66,7 @@ filter_parse(char *text)
 	nullguard(text);
 	if (NULL != filterrules)
 		filter_freeall();
-	rule = filterrules = malloc(sizeof(FilterRule));
-	nullguard(rule);
+	rule = filterrules = g_malloc(sizeof(FilterRule));
 	filter_ruleinit(rule);
 
 	scan = g_scanner_new(NULL);
@@ -152,7 +150,7 @@ filterparse_next_rule:
 			freeandnull(field4);
 		}
 
-		rule->next = malloc(sizeof(FilterRule));
+		rule->next = g_malloc(sizeof(FilterRule));
 		filter_ruleinit(rule->next);
 		rule->next->prev = rule;
 		rule = rule->next;
@@ -550,8 +548,7 @@ filter_get(const char *fordomain)
 
 	nullguard(fordomain, NULL);
 	if (NULL == filterrules) {
-		filterrules = malloc(sizeof(FilterRule));
-		nullguard(filterrules, NULL);
+		filterrules = g_malloc(sizeof(FilterRule));
 		filter_ruleinit(filterrules);
 		return filterrules;
 	}
@@ -580,8 +577,7 @@ filter_get(const char *fordomain)
 	}
 
 	rule = prev;
-	rule->next = malloc(sizeof(FilterRule));
-	nullguard(rule->next, NULL);
+	rule->next = g_malloc(sizeof(FilterRule));
 	filter_ruleinit(rule->next);
 	rule->next->iftopurl = strdup(shorter);
 	rule->next->prev = rule;

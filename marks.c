@@ -47,7 +47,7 @@ mark_read(BSMark **mark_out, int *msz_out)
 		++fpos;
 	}
 	msz = lineend->len;
-	mark = malloc(sizeof(BSMark) * msz);
+	mark = g_malloc(sizeof(BSMark) * msz);
 
 	/* for each line */
 	fpos = 0;
@@ -60,7 +60,7 @@ mark_read(BSMark **mark_out, int *msz_out)
 		lsz = lend - lstart;
 		if (NULL != line)
 			free(line);
-		line = malloc(lsz + 1);
+		line = g_malloc(lsz + 1);
 		if(lsz != fread(line, 1, lsz, file))
 			err("Could not read marks file.");
 		line[lsz] = 0;
@@ -191,7 +191,7 @@ mark_test(const char *uri)
 		) {
 			if (mark[i].isquery) {
 				ressz = strlen(uri) + strlen(mark[i].uri);
-				result = malloc(ressz);
+				result = g_malloc(ressz);
 				snprintf(
 					result,
 					ressz,
@@ -207,7 +207,7 @@ mark_test(const char *uri)
 
 	/* duplicate string to ensure returned value can be free'd */
 	/* add http:// to each uri (note: loaduri() tests for this first */
-	result = malloc(strlen(uri) + 8);
+	result = g_malloc(strlen(uri) + 8);
 	result[0] = 0;
 	strcat(result, "http://");
 	strcat(result, uri);

@@ -48,9 +48,8 @@ filetostr(char *filename)
 	len = ftell(file);
 	rewind(file);
 
-	result = malloc(len + 1);
+	result = g_malloc(len + 1);
 	result[len] = 0;
-	nullguard(result, NULL);
 	if (len != fread(result, 1, len, file)) {
 		fclose(file);
 		free(result);
@@ -104,7 +103,7 @@ cmd(const char *input, const char *command[])
 	close(cmdpipe[1]);
 
 	/* read child's stdout to buf, enlarging buf as necessary */
-	buf = malloc(bufsz);
+	buf = g_malloc(bufsz);
 	bufpos = 0;
 	while(bufsz == bufpos +
 		(retsz = read(retpipe[0], &buf[bufpos], bufsz - bufpos))
@@ -124,7 +123,7 @@ cmd(const char *input, const char *command[])
 		buf[--bufpos] = 0;
 
 	/* move result to smaller memory allocation */
-	result = malloc(bufpos + 1);
+	result = g_malloc(bufpos + 1);
 	result[bufpos] = 0;
 	strncpy(result, buf, bufpos);
 	free(buf);
