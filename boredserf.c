@@ -31,6 +31,7 @@
 #include "boredserf.h"
 #include "common.h"
 #include "filter.h"
+#include "marks.h"
 #include "shellish.h"
 
 #include "config.h"
@@ -390,7 +391,7 @@ loaduri(Client *c, const Arg *a)
 		) {
 			g_string_printf(url, "file://%s", path_c);
 		} else {
-			path_c = testmarks(input->str);
+			path_c = mark_test(input->str);
 			nullguard(path_c);
 			g_string_append(url, path_c);
 		}
@@ -2390,149 +2391,6 @@ replacekeytree(Client *c, void *cb)
 		c
 	);
 	c->keyhandler = ids[idpos];
-}
-
-char*
-testmarks(const char *uri)
-{
-	enum { linemax = 1024 };
-	enum { markszdef = 32 };
-	static BS_Mark *mark = NULL;
-	static int mmax = 0;
-	static int msz = 0;
-	char maybetoken[linemax];
-	char *result = NULL;
-	int ressz;
-	int i;
-	int c;
-
-	if (NULL == marks_loc || NULL == uri)
-		return NULL;
-
-	/* read marks from disk */
-	/* malloc's each mark and string(s) for each mark; however, should only
-	 * be created once and remains useful for duration of runtime. */
-
-	if (NULL == mark) {
-		int mpos = 0;
-		FILE *file = NULL;
-		int fsz;
-		int fpos = 0;
-		char line[linemax];
-		int lpos;
-		int lsz;
-		char *strend;
-
-		file = fopen(marks_loc->str, "r");
-		nullguard(file, NULL);
-		fseek(file, 0, SEEK_END);
-		fsz = ftell(file);
-		rewind(file);
-
-		while (fpos < fsz) {
-			/* for each line */
-
-			/* allocate memory */
-			if (mpos >= mmax) {
-				if (mmax)
-					mmax *= 2;
-				else
-					mmax = markszdef;
-				mark = realloc(mark, mmax * sizeof(BS_Mark));
-			}
-
-			/* copy next line */
-			lpos = 0;
-			while (lpos < linemax) {
-				line[lpos] = fgetc(file);
-				if (
-					'\n' == line[lpos] ||
-					0    == line[lpos] ||
-					EOF  == line[lpos]
-				) {
-					line[lpos++] = 0;
-					break;
-				}
-				++lpos;
-			}
-			fpos += lpos;
-			lsz = lpos;
-
-			if ('#' == line[0])
-				continue;
-
-			/* copy values to this mark */
-			mark[mpos].isquery = 0;
-			if (0 == strncmp("mark:", line, 5)) {
-				strend = strchr(line + 5, ':');
-				mark[mpos].token = strndup(
-					line + 5,
-					strend - (line + 5)
-				);
-				/* overwrite any ? with nul */
-				for (int i = 0; mark[mpos].token[i]; ++i) {
-					if ('?' == mark[mpos].token[i]) {
-						mark[mpos].token[i] = 0;
-						mark[mpos].isquery = 1;
-						break;
-					}
-				}
-				if (strchr(mark[mpos].token, '?'))
-					*(strend - 1) = 0;
-				mark[mpos].uri = strdup(strend + 1);
-			} else {
-				mark[mpos].token = NULL;
-				mark[mpos].uri = strdup(line);
-			}
-			++mpos;
-		}
-		msz = mpos;
-	}
-
-	/* search through marks for matches */
-	for (i = 0; i < msz; ++i) {
-		if (NULL == mark[i].token)
-			continue;
-		for (c = 0; uri[c]; ++c) {
-			maybetoken[c] = uri[c];
-			if (
-				' ' == maybetoken[c] ||
-				'\t' == maybetoken[c]
-			) {
-				maybetoken[c] = 0;
-				++c;
-			}
-			if (c == linemax - 1)
-				break;
-		}
-		maybetoken[c] = 0;
-		if (
-			strlen(mark[i].token) == strlen(maybetoken) &&
-			0 == strcmp(mark[i].token, maybetoken)
-		) {
-			if (mark[i].isquery) {
-				ressz = strlen(uri) + strlen(mark[i].uri);
-				result = malloc(ressz);
-				snprintf(
-					result,
-					ressz,
-					mark[i].uri, 
-					uri + strlen(maybetoken) + 1
-				);
-				return result;
-			} else {
-				return strdup(mark[i].uri);
-			}
-		}
-	}
-
-	/* duplicate string to ensure returned value can be free'd */
-	/* add http:// to each uri (note: loaduri() tests for this first */
-	result = malloc(strlen(uri) + 8);
-	result[0] = 0;
-	strcat(result, "http://");
-	strcat(result, uri);
-	return result;
 }
 
 /* returns malloc'd string */
