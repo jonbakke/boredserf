@@ -647,6 +647,8 @@ filter_updatejson(void)
 		"\"block\"}}";
 	const char actallow[] = "]},\n \"action\":{\"type\":"
 		"\"ignore-previous-rules\"}}";
+	const char party1[] = "],\"load-type\":[\"first-party\"";
+	const char party3[] = "],\"load-type\":[\"third-party\"";
 	GString *j = g_string_new(NULL);
 	int len = 2048;
 	int first = 1;
@@ -665,6 +667,7 @@ filter_updatejson(void)
 				first = 0;
 			g_string_append(j, rule->jsonpreface);
 			g_string_append(j, rule->p1.jsonallow);
+			g_string_append(j, party1);
 			g_string_append(j, actallow);
 		}
 		if (NULL != rule->p1.jsonblock) {
@@ -674,6 +677,7 @@ filter_updatejson(void)
 				first= 0;
 			g_string_append(j, rule->jsonpreface);
 			g_string_append(j, rule->p1.jsonblock);
+			g_string_append(j, party1);
 			g_string_append(j, actblock);
 		}
 		if (NULL != rule->p3.jsonallow) {
@@ -683,6 +687,7 @@ filter_updatejson(void)
 				first = 0;
 			g_string_append(j, rule->jsonpreface);
 			g_string_append(j, rule->p3.jsonallow);
+			g_string_append(j, party3);
 			g_string_append(j, actallow);
 		}
 		if (NULL != rule->p3.jsonblock) {
@@ -692,6 +697,7 @@ filter_updatejson(void)
 				first = 0;
 			g_string_append(j, rule->jsonpreface);
 			g_string_append(j, rule->p3.jsonblock);
+			g_string_append(j, party3);
 			g_string_append(j, actblock);
 		}
 
