@@ -348,24 +348,23 @@ loaduri(Client *c, const Arg *a)
 	input = g_string_new(a->v);
 
 	if (
-		g_str_has_prefix(input->str, "http://")  ||
 		g_str_has_prefix(input->str, "https://") ||
+		g_str_has_prefix(input->str, "http://")  ||
 		g_str_has_prefix(input->str, "file://")  ||
 		g_str_has_prefix(input->str, "about:")
 	) {
 		url = input;
 	} else {
 		struct stat st;
-		GString *path = input;
 		char *path_c;
 		url = g_string_new(NULL);
 		if (g_str_has_prefix(input->str, "~/"))
-			g_string_replace(path, "~", g_get_home_dir(), 1);
+			g_string_replace(input, "~", g_get_home_dir(), 1);
 
 		if (
 			/* stat returns 0 on success */
-			!stat(path->str, &st) &&
-			(path_c = realpath(path->str, NULL))
+			!stat(input->str, &st) &&
+			(path_c = realpath(input->str, NULL))
 		) {
 			g_string_printf(url, "file://%s", path_c);
 		} else {
@@ -373,7 +372,7 @@ loaduri(Client *c, const Arg *a)
 			nullguard(path_c);
 			g_string_append(url, path_c);
 		}
-		g_string_free(path, TRUE);
+		g_string_free(input, TRUE);
 		g_free(path_c);
 	}
 
@@ -394,7 +393,6 @@ loaduri(Client *c, const Arg *a)
 	}
 	resetkeytree(c);
 	g_string_free(url, TRUE);
-	g_string_free(input, TRUE);
 	g_string_free(currenturi, TRUE);
 }
 
@@ -1372,10 +1370,25 @@ newview(Client *c, WebKitWebView *rv)
 		v = WEBKIT_WEB_VIEW(webkit_web_view_new_with_related_view(rv));
 	} else {
 		WebKitWebContext *context;
-		WebKitCookieManager *cookiemanager =
-			webkit_web_context_get_cookie_manager(context);
+		WebKitCookieManager *cookiemanager;
 		WebKitUserContentManager *contentmanager =
 			webkit_user_content_manager_new();
+
+		if (curconfig[Ephemeral].val.i) {
+			context = webkit_web_context_new_ephemeral();
+		} else {
+			context = webkit_web_context_new_with_website_data_manager(
+				webkit_website_data_manager_new(
+					"base-cache-directory",
+					cachedir_loc->str,
+					"base-data-directory",
+					cachedir_loc->str,
+					NULL
+				)
+			);
+		}
+
+		cookiemanager = webkit_web_context_get_cookie_manager(context);
 		WebKitSettings *settings = webkit_settings_new_with_settings(
 			"allow-file-access-from-file-urls",
 				curconfig[FileURLsCrossAccess].val.i,
@@ -1429,20 +1442,6 @@ newview(Client *c, WebKitWebView *rv)
 			);
 		}
 		useragent = webkit_settings_get_user_agent(settings);
-
-		if (curconfig[Ephemeral].val.i) {
-			context = webkit_web_context_new_ephemeral();
-		} else {
-			context = webkit_web_context_new_with_website_data_manager(
-				webkit_website_data_manager_new(
-					"base-cache-directory",
-					cachedir_loc->str,
-					"base-data-directory",
-					cachedir_loc->str,
-					NULL
-				)
-			);
-		}
 
 		/* rendering process model, can be a shared unique one
 		 * or one for each view */
@@ -2160,26 +2159,21 @@ decideresource(WebKitPolicyDecision *d, Client *c)
 	}
 
 	if (
-		!g_str_has_prefix(uri, "http://") &&
 		!g_str_has_prefix(uri, "https://") &&
-		!g_str_has_prefix(uri, "about:") &&
+		!g_str_has_prefix(uri, "http://") &&
 		!g_str_has_prefix(uri, "file://") &&
+		!g_str_has_prefix(uri, "about:") &&
 		!g_str_has_prefix(uri, "data:") &&
 		!g_str_has_prefix(uri, "blob:") &&
 		strlen(uri) > 0
 	) {
 		const int urilen = strlen(uri);
-		int isascii = 1;
 		for (int i = 0; i < urilen; i++) {
 			if (!g_ascii_isprint(uri[i])) {
-				isascii = 0;
-				break;
+				handleplumb(c, uri);
+				webkit_policy_decision_ignore(d);
+				return;
 			}
-		}
-		if (isascii) {
-			handleplumb(c, uri);
-			webkit_policy_decision_ignore(d);
-			return;
 		}
 	}
 
