@@ -205,5 +205,6 @@ mark_test(const char *uri)
 	result[0] = 0;
 	strcat(result, "http://");
 	strcat(result, uri);
+	return result;
 }
 
