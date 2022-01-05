@@ -629,7 +629,7 @@ filter_display(Client *c, FilterRule *rule)
 		strcat(display, rule->p3.display);
 	}
 
-	c->overtitle = display;
+	g_string_assign(c->overtitle, display);
 	updatetitle(c);
 }
 

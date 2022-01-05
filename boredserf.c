@@ -202,6 +202,8 @@ setup(void)
 		for (int i = 0; i < LENGTH(styles); ++i) {
 			if (!styledir_loc)
 				break;
+			if (!styles[i].file)
+				continue;
 			if (
 				!regcomp(
 					&(styles[i].re),
@@ -332,8 +334,11 @@ newclient(Client *rc)
 
 	c->progress = 100;
 	c->view = newview(c, rc ? rc->view : NULL);
+	c->title = g_string_new(NULL);
+	c->overtitle = g_string_new(NULL);
 	c->board_flags = -1;
 	c->board_input = g_string_new(NULL);
+	c->board_cb = NULL;
 
 	return c;
 }
@@ -502,10 +507,10 @@ getatom(Client *c, int a)
 void
 updatetitle(Client *c)
 {
-	const char *name = c->overtitle
-		? c->overtitle
-		: c->title
-			? c->title
+	const char *name = c->overtitle->len
+		? c->overtitle->str
+		: c->title->len
+			? c->title->str
 			: "";
 
 	if (curconfig[ShowIndicators].val.i) {
@@ -1161,19 +1166,23 @@ getstyle(const char *uri)
 	for (int i = 0; i < LENGTH(styles); ++i) {
 		if (
 			styles[i].regex &&
+			styles[i].file &&
 			!regexec(&(styles[i].re), uri, 0, NULL, 0)
 		) {
 			return styles[i].file;
 		}
 	}
 
-	return "";
+	return NULL;
 }
 
 void
 setstyle(Client *c, const char *file)
 {
 	gchar *style;
+
+	if (NULL == file)
+		return;
 
 	if (!g_file_get_contents(file, &style, NULL, NULL)) {
 		g_printerr("For %s: \n", file);
@@ -1291,12 +1300,14 @@ newwindow(Client *c, const Arg *a, int noembed)
 void
 logvisit(const GString *uri)
 {
+	FILE *visited_file = NULL;
+
 	if (NULL == visited_loc)
 		return;
 	nullguard(uri);
 
 	/* TODO mutex */
-	FILE *visited_file = fopen(visited_loc->str, "a+");
+	visited_file = fopen(visited_loc->str, "a+");
 	if (visited_file) {
 		fwrite(uri->str, 1, uri->len, visited_file);
 		fwrite("\n", 1, 1, visited_file);
@@ -1331,6 +1342,10 @@ destroyclient(Client *c)
 	   */
 	if (c->board_input)
 		g_string_free(c->board_input, TRUE);
+	if (c->title)
+		g_string_free(c->title, TRUE);
+	if (c->overtitle)
+		g_string_free(c->overtitle, TRUE);
 
 	for (p = clients; p && p->next != c; p = p->next)
 		;
@@ -1752,7 +1767,13 @@ winevent(GtkWidget *w, GdkEvent *e, Client *c)
 
 	switch (e->type) {
 	case GDK_ENTER_NOTIFY:
-		c->overtitle = c->targeturi;
+		if (c->targeturi)
+			c->overtitle = g_string_assign(
+				c->overtitle,
+				c->targeturi
+			);
+		else
+			g_string_erase(c->overtitle, 0, -1);
 		updatetitle(c);
 		break;
 	case GDK_KEY_PRESS:
@@ -1760,7 +1781,7 @@ winevent(GtkWidget *w, GdkEvent *e, Client *c)
 		key.keyval = gdk_keyval_to_lower(e->key.keyval);
 		return runkey(key,c);
 	case GDK_LEAVE_NOTIFY:
-		c->overtitle = NULL;
+		g_string_erase(c->overtitle, 0, -1);
 		updatetitle(c);
 		break;
 	case GDK_WINDOW_STATE:
@@ -1968,7 +1989,7 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 	switch (e) {
 	case WEBKIT_LOAD_STARTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri->str;
+		g_string_assign(c->title, uri->str);
 		c->https = c->insecure = 0;
 		seturiparameters(c, uri->str, loadtransient);
 		if (c->errorpage)
@@ -1978,12 +1999,12 @@ loadchanged(WebKitWebView *v, WebKitLoadEvent e, Client *c)
 		break;
 	case WEBKIT_LOAD_REDIRECTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri->str;
+		g_string_assign(c->title, uri->str);
 		seturiparameters(c, uri->str, loadtransient);
 		break;
 	case WEBKIT_LOAD_COMMITTED:
 		setatom(c, AtomUri, uri);
-		c->title = uri->str;
+		g_string_assign(c->title, uri->str);
 		seturiparameters(c, uri->str, loadcommitted);
 		c->https = webkit_web_view_get_tls_info(
 			c->view,
@@ -2020,7 +2041,7 @@ progresschanged(WebKitWebView *v, GParamSpec *ps, Client *c)
 void
 titlechanged(WebKitWebView *view, GParamSpec *ps, Client *c)
 {
-	c->title = webkit_web_view_get_title(c->view);
+	g_string_assign(c->title, webkit_web_view_get_title(c->view));
 	updatetitle(c);
 }
 
@@ -2042,7 +2063,10 @@ mousetargetchanged(WebKitWebView *v, WebKitHitTestResult *h, guint modifiers,
 	else
 		c->targeturi = NULL;
 
-	c->overtitle = c->targeturi;
+	if (c->targeturi)
+		g_string_assign(c->overtitle, c->targeturi);
+	else
+		g_string_erase(c->overtitle, 0, -1);
 	updatetitle(c);
 }
 
@@ -2297,7 +2321,7 @@ resetkeytree(Client *c)
 {
 	/* keytree cleanup */
 	if (curkeytree == filterkeys) {
-		c->overtitle = NULL;
+		g_string_erase(c->overtitle, 0, -1);
 		updatetitle(c);
 	}
 

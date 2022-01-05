@@ -1,6 +1,8 @@
 /* This file is part of boredserf. */
 
 #include "board.h"
+#include "common.h"
+#include "marks.h"
 
 void
 board(Client *c, const Arg *a)
@@ -88,7 +90,10 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 
 		case GDK_KEY_Return:
 			/* exit board interface */
-			c->overtitle = c->targeturi;
+			if (c->targeturi)
+				g_string_assign(c->overtitle, c->targeturi);
+			else
+				g_string_erase(c->overtitle, 0, -1);
 			updatetitle(c);
 
 			/* goto resets upon commit */
@@ -116,7 +121,10 @@ board_handler(GtkWidget *w, GdkEvent *e, Client *c)
 	if (-1 == c->board_flags) {
 		g_string_erase(input, 0, -1);
 		replacekeytree(c, NULL);
-		c->overtitle = c->targeturi;
+		if (c->targeturi)
+			g_string_assign(c->overtitle, c->targeturi);
+		else
+			g_string_erase(c->overtitle, 0, -1);
 		updatetitle(c);
 		return TRUE;
 	}
@@ -166,4 +174,75 @@ board_status(Client *c, GString *input, GString *match)
 	/* apply */
 	gtk_window_set_title(GTK_WINDOW(c->win), status->str);
 	g_string_free(status, TRUE);
+}
+
+void
+savemark(Client *c, const Arg *ignored)
+{
+	GString *prompt = g_string_new("mark keyword: ");
+	nullguard(c);
+
+	board_get_input(c, prompt, savemark_finish);
+}
+
+void
+savemark_finish(Client *c)
+{
+	GString *uri;
+	FILE *marks_file;
+
+	if (NULL == marks_loc)
+		return;
+	nullguard(c);
+
+	uri = geturi(c);
+
+	uri = geturi(c);
+	mark_add(uri, c->board_input);
+	g_string_erase(c->overtitle, 0, -1);
+	g_string_erase(c->board_input, 0, -1);
+	g_string_free(uri, TRUE);
+	updatetitle(c);
+}
+
+void
+board_get_input(Client *c, const GString *prompt, void(*cb)(Client*))
+{
+	nullguard(c);
+
+	g_string_erase(c->board_input, 0, -1);
+	g_string_assign(c->overtitle, prompt->str);
+	updatetitle(c);
+	c->board_cb = cb;
+	replacekeytree(c, board_text_input);
+}
+
+/* saves input as c->board_input */
+gboolean
+board_text_input(GtkWidget *w, GdkEvent *e, Client *c)
+{
+	if (GDK_KEY_PRESS != e->type)
+		return FALSE;
+	if (e->key.is_modifier)
+		return FALSE;
+	if (e->key.state)
+		return FALSE;
+
+	switch (e->key.keyval) {
+	case GDK_KEY_Escape:
+		g_string_erase(c->board_input, 0, -1);
+		/* fall through */
+	case GDK_KEY_Return:
+		replacekeytree(c, NULL);
+		if (c->board_cb)
+			c->board_cb(c);
+		return TRUE;
+	default:
+		g_string_append_c(c->board_input, e->key.keyval);
+		g_string_append_c(c->overtitle, e->key.keyval);
+		updatetitle(c);
+		return TRUE;
+	}
+
+	return FALSE;
 }

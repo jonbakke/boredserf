@@ -35,5 +35,9 @@ enum BoredBoard {
 void board(Client *c, const Arg *a);
 gboolean board_handler(GtkWidget *w, GdkEvent *e, Client *c);
 void board_status(Client *c, GString *input, GString *match);
+void savemark(Client *c, const Arg *ignored);
+void savemark_finish(Client *c);
+void board_get_input(Client *c, const GString *prompt, void(*cb)(Client*));
+gboolean board_text_input(GtkWidget *w, GdkEvent *e, Client *c);
 
 #endif /* BOARD_H */

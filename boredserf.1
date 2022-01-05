@@ -136,7 +136,22 @@ Enable content blocker.
 Specify the
 .I zoomlevel
 which boredserf should use.
-.SH USAGE
+.SH USAGE: Navigation
+.B Ctrl\-g
+Open control board to go-to a given location or mark.
+.TP
+.B Ctrl\-p
+Loads URI from primary selection.
+.TP
+.B Ctrl\-y
+Copies current URI to primary selection.
+.TP
+.B Ctrl\-r
+Reloads the website.
+.TP
+.B Ctrl\-Shift\-r
+Reloads the website without using the cache.
+.TP
 .B Escape
 Stops loading current page or stops download.
 .TP
@@ -146,6 +161,9 @@ Walks back the history.
 .B Ctrl\-l
 Walks forward the history.
 .TP
+.B Ctrl\-m
+Prompt to save the current URI as a mark.
+.SH USAGE: View
 .B Ctrl\-k
 Scrolls page upwards.
 .TP
@@ -173,8 +191,11 @@ Zooms page out.
 .B Ctrl\-Shift\-q
 Resets Zoom.
 .TP
-.B Ctrl\-f and Ctrl\-/
-Opens the search-bar.
+.B F11
+Toggle fullscreen mode.
+.TP
+.B Ctrl\-f
+Opens the control board for searching within the current page.
 .TP
 .B Ctrl\-n
 Go to next search result.
@@ -182,24 +203,15 @@ Go to next search result.
 .B Ctrl\-Shift\-n
 Go to previous search result.
 .TP
-.B Ctrl\-g
-Opens the URL-bar (requires dmenu installed).
+.B Ctrl\-Shift\-b
+Toggle scrollbars. This will reload the page.
 .TP
-.B Ctrl\-p
-Loads URI from primary selection.
+.B Ctrl\-Shift\-c
+Toggle caret browsing. This will reload the page.
 .TP
 .B Ctrl\-Shift\-p
 Calls Printpage Dialog.
-.TP
-.B Ctrl\-r
-Reloads the website.
-.TP
-.B Ctrl\-Shift\-r
-Reloads the website without using the cache.
-.TP
-.B Ctrl\-y
-Copies current URI to primary selection.
-.TP
+.SH USAGE: Behavior
 .B Ctrl\-t
 Display the current TLS certificate in a popup window.
 .TP
@@ -207,12 +219,6 @@ Display the current TLS certificate in a popup window.
 Toggle through the the
 .I cookie policies\fR.
 This will not reload the page.
-.TP
-.B Ctrl\-Shift\-b
-Toggle scrollbars. This will reload the page.
-.TP
-.B Ctrl\-Shift\-c
-Toggle caret browsing. This will reload the page.
 .TP
 .B Ctrl\-Shift\-i
 Toggle auto-loading of images. This will reload the page.
@@ -234,9 +240,6 @@ Toggle strict TLS check. This will reload the page.
 .B Ctrl\-Shift\-y
 Enter content blocker mode. See
 .I content blocking\fR, below.
-.TP
-.B F11
-Toggle fullscreen mode.
 .SH INDICATORS OF OPERATION
 boredserf is showing indicators of operation in front of the site title.
 For all indicators, unless otherwise specified, a lower case letter means disabled and an upper case letter means enabled.

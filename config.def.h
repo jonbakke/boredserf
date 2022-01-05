@@ -143,7 +143,7 @@ WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
  */
 SiteSpecific styles[] = {
 	/* regexp               file in $styledir */
-	{ ".*",                 "default.css" },
+	{ ".*",                 NULL },
 };
 
 /* certificates */
@@ -222,7 +222,6 @@ Key keys[] = {
 	{ MODKEY,                GDK_KEY_i,      scrollh,    { .i = +10 } },
 	{ MODKEY,                GDK_KEY_u,      scrollh,    { .i = -10 } },
 
-
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_j,      zoom,       { .i = -1 } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_k,      zoom,       { .i = +1 } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_q,      zoom,       { .i = 0  } },
@@ -251,6 +250,8 @@ Key keys[] = {
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_t,      toggle,     { .i = StrictTLS } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_m,      toggle,     { .i = Style } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_y,      setkeytree, { .v = filterkeys } },
+
+	{ MODKEY,                GDK_KEY_m,      savemark,   { .i = 0 } },
 	{ 0, 0, NULL, { .v = NULL} } /* last entry */
 };
 Key *defkeytree = keys;

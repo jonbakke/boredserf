@@ -208,3 +208,22 @@ mark_test(const char *uri)
 	return result;
 }
 
+void
+mark_add(const GString *uri, const GString *name)
+{
+	if (NULL == marks_loc)
+		return;
+	nullguard(uri);
+
+	/* TODO mutex */
+	FILE *marks_file = fopen(marks_loc->str, "a+");
+	if (marks_file) {
+		fwrite("mark:", 1, 5, marks_file);
+		if (name && 0 < name->len)
+			fwrite(name->str, 1, name->len, marks_file);
+		fwrite(":", 1, 1, marks_file);
+		fwrite(uri->str, 1, uri->len, marks_file);
+		fwrite("\n", 1, 1, marks_file);
+		fclose(marks_file);
+	}
+}

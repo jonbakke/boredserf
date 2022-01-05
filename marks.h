@@ -25,5 +25,6 @@ typedef struct {
 void  mark_read(BSMark **mark, int *msz);
 void  mark_parse(char *line, BSMark *mark);
 char* mark_test(const char *uri);
+void  mark_add(const GString *uri, const GString *name);
 
 #endif /* MARKS_H */

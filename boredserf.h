@@ -77,11 +77,13 @@ typedef struct Client {
 	Window xid;
 	guint64 pageid;
 	gulong keyhandler;
+	int progress, fullscreen, https, insecure, errorpage;
+	GString *title, *overtitle;
+	const char *targeturi;
+	const char *needle;
 	int board_flags;
 	GString *board_input;
-	int progress, fullscreen, https, insecure, errorpage;
-	const char *title, *overtitle, *targeturi;
-	const char *needle;
+	void (*board_cb)(struct Client *c);
 	struct Client *next;
 } Client;
 
