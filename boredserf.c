@@ -148,10 +148,14 @@ setup(void)
 	/* dirs and files */
 	cookie_loc     = buildfile(cookiefile);
 	script_loc     = buildfile(scriptfile);
-	visited_loc    = buildfile(visitedfile);
-	marks_loc      = buildfile(marksfile);
-	filterrule_loc = buildfile(filterrulefile);
-	filterdir_loc  = buildpath(filterdir);
+	if (visitedfile)
+		visited_loc    = buildfile(visitedfile);
+	if (marksfile)
+		marks_loc      = buildfile(marksfile);
+	if (filterrulefile && filterdir) {
+		filterrule_loc = buildfile(filterrulefile);
+		filterdir_loc  = buildpath(filterdir);
+	}
 	certdir_loc    = buildpath(certdir);
 	if (curconfig[Ephemeral].val.i)
 		cachedir_loc = NULL;
@@ -386,11 +390,7 @@ loaduri(Client *c, const Arg *a)
 		updatetitle(c);
 	}
 
-	if (visited_loc && (visited = fopen(visited_loc->str, "a+"))) {
-		fwrite(url->str, 1, url->len, visited);
-		fwrite("\n", 1, 1, visited);
-		fclose(visited);
-	}
+	logvisit(url);
 	resetkeytree(c);
 	g_string_free(url, TRUE);
 	g_string_free(currenturi, TRUE);
@@ -1289,6 +1289,22 @@ newwindow(Client *c, const Arg *a, int noembed)
 }
 
 void
+logvisit(const GString *uri)
+{
+	if (NULL == visited_loc)
+		return;
+	nullguard(uri);
+
+	/* TODO mutex */
+	FILE *visited_file = fopen(visited_loc->str, "a+");
+	if (visited_file) {
+		fwrite(uri->str, 1, uri->len, visited_file);
+		fwrite("\n", 1, 1, visited_file);
+		fclose(visited_file);
+	}
+}
+
+void
 spawn(Client *c, const Arg *a)
 {
 	if (fork() == 0) {
@@ -2151,26 +2167,26 @@ decideresource(WebKitPolicyDecision *d, Client *c)
 	WebKitResponsePolicyDecision *r = WEBKIT_RESPONSE_POLICY_DECISION(d);
 	WebKitURIResponse *res =
 		webkit_response_policy_decision_get_response(r);
-	const gchar *uri = webkit_uri_response_get_uri(res);
+	const GString *visited =
+		g_string_new(webkit_uri_response_get_uri(res));
 
-	if (g_str_has_suffix(uri, "/favicon.ico")) {
+	if (g_str_has_suffix(visited->str, "/favicon.ico")) {
 		webkit_policy_decision_ignore(d);
 		return;
 	}
 
 	if (
-		!g_str_has_prefix(uri, "https://") &&
-		!g_str_has_prefix(uri, "http://") &&
-		!g_str_has_prefix(uri, "file://") &&
-		!g_str_has_prefix(uri, "about:") &&
-		!g_str_has_prefix(uri, "data:") &&
-		!g_str_has_prefix(uri, "blob:") &&
-		strlen(uri) > 0
+		!g_str_has_prefix(visited->str, "https://") &&
+		!g_str_has_prefix(visited->str, "http://") &&
+		!g_str_has_prefix(visited->str, "file://") &&
+		!g_str_has_prefix(visited->str, "about:") &&
+		!g_str_has_prefix(visited->str, "data:") &&
+		!g_str_has_prefix(visited->str, "blob:") &&
+		0 < visited->len
 	) {
-		const int urilen = strlen(uri);
-		for (int i = 0; i < urilen; i++) {
-			if (!g_ascii_isprint(uri[i])) {
-				handleplumb(c, uri);
+		for (int i = 0; i < visited->len; i++) {
+			if (!g_ascii_isprint(visited->str[i])) {
+				handleplumb(c, visited->str);
 				webkit_policy_decision_ignore(d);
 				return;
 			}
@@ -2178,6 +2194,7 @@ decideresource(WebKitPolicyDecision *d, Client *c)
 	}
 
 	if (webkit_response_policy_decision_is_mime_type_supported(r)) {
+		logvisit(visited);
 		webkit_policy_decision_use(d);
 	} else {
 		webkit_policy_decision_ignore(d);

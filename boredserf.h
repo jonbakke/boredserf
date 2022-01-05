@@ -167,6 +167,7 @@ void evalscript(Client *c, const char *jsstr, ...);
 void updatewinid(Client *c);
 void handleplumb(Client *c, const char *uri);
 void newwindow(Client *c, const Arg *a, int noembed);
+void logvisit(const GString *uri);
 void spawn(Client *c, const Arg *a);
 void msgext(Client *c, char type, const Arg *a);
 void destroyclient(Client *c);
