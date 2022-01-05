@@ -123,9 +123,7 @@ usage(void)
 void
 setup(void)
 {
-	GIOChannel *gchanin;
 	GdkDisplay *gdpy;
-	int i, j;
 
 	if (signal(SIGHUP, sighup) == SIG_ERR)
 		die("Could not install SIGHUP handler.");
@@ -166,6 +164,7 @@ setup(void)
 		fputs("Unable to create sockets\n", stderr);
 		spair[0] = spair[1] = -1;
 	} else {
+		GIOChannel *gchanin;
 		gchanin = g_io_channel_unix_new(spair[0]);
 		g_io_channel_set_encoding(gchanin, NULL, NULL);
 		g_io_channel_set_flags(
@@ -177,7 +176,7 @@ setup(void)
 		g_io_add_watch(gchanin, G_IO_IN, readsock, NULL);
 	}
 
-	for (i = 0; i < LENGTH(certs); ++i) {
+	for (int i = 0; i < LENGTH(certs); ++i) {
 		if (!regcomp(&(certs[i].re), certs[i].regex, REG_EXTENDED)) {
 			certs[i].file = g_strconcat(
 				certdir_loc->str,
@@ -196,7 +195,7 @@ setup(void)
 
 	if (!stylefile && styledir) {
 		GString *styledir_loc = buildpath(styledir);
-		for (i = 0; i < LENGTH(styles); ++i) {
+		for (int i = 0; i < LENGTH(styles); ++i) {
 			if (!styledir_loc)
 				break;
 			if (
@@ -225,7 +224,7 @@ setup(void)
 		style_loc = buildfile(stylefile);
 	}
 
-	for (i = 0; i < LENGTH(uriparams); ++i) {
+	for (int i = 0; i < LENGTH(uriparams); ++i) {
 		if (
 			regcomp(
 				&(uriparams[i].re),
@@ -242,7 +241,7 @@ setup(void)
 		}
 
 		/* copy default parameters with higher priority */
-		for (j = 0; j < ParameterLast; ++j) {
+		for (int j = 0; j < ParameterLast; ++j) {
 			if (defconfig[j].prio >= uriparams[i].config[j].prio)
 				uriparams[i].config[j] = defconfig[j];
 		}
@@ -257,9 +256,7 @@ void
 sighup(int unused)
 {
 	Arg a = { .i = 0 };
-	Client *c;
-
-	for (c = clients; c; c = c->next)
+	for (Client *c = clients; c; c = c->next)
 		reload(c, &a);
 }
 
@@ -340,12 +337,9 @@ newclient(Client *rc)
 void
 loaduri(Client *c, const Arg *a)
 {
-	struct stat st;
 	GString *input;
-	GString *path;
 	GString *currenturi;
 	GString *url;
-	char *path_c;
 	FILE *visited;
 
 	/* require some input from a->v */
@@ -361,8 +355,10 @@ loaduri(Client *c, const Arg *a)
 	) {
 		url = input;
 	} else {
+		struct stat st;
+		GString *path = input;
+		char *path_c;
 		url = g_string_new(NULL);
-		path = input;
 		if (g_str_has_prefix(input->str, "~/"))
 			g_string_replace(path, "~", g_get_home_dir(), 1);
 
@@ -398,6 +394,7 @@ loaduri(Client *c, const Arg *a)
 	}
 	resetkeytree(c);
 	g_string_free(url, TRUE);
+	g_string_free(input, TRUE);
 	g_string_free(currenturi, TRUE);
 }
 
@@ -507,7 +504,6 @@ getatom(Client *c, int a)
 void
 updatetitle(Client *c)
 {
-	char *title;
 	const char *name = c->overtitle
 		? c->overtitle
 		: c->title
@@ -515,6 +511,7 @@ updatetitle(Client *c)
 			: "";
 
 	if (curconfig[ShowIndicators].val.i) {
+		char *title;
 		gettogglestats(c);
 		getpagestats(c);
 
@@ -585,7 +582,6 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 {
 	WebKitJavascriptResult *js_res;
 	JSCValue *value;
-	JSCException *exception;
 	GError *error = NULL;
 	char *result = NULL;
 
@@ -608,6 +604,7 @@ getwkjs_guard(GObject *source, GAsyncResult *res, gpointer data)
 	if (jsc_value_is_undefined(value) || jsc_value_is_null(value))
 		return NULL;
 	if (jsc_value_is_string(value)) {
+		JSCException *exception;
 		exception = jsc_context_get_exception(
 			jsc_value_get_context(value)
 		);
@@ -912,9 +909,9 @@ void
 seturiparameters(Client *c, const char *uri, ParamName *params)
 {
 	Parameter *config, *uriconfig = NULL;
-	int i, p;
+	int p;
 
-	for (i = 0; i < LENGTH(uriparams); ++i) {
+	for (int i = 0; i < LENGTH(uriparams); ++i) {
 		if (
 			uriparams[i].uri &&
 			!regexec(&(uriparams[i].re), uri, 0, NULL, 0)
@@ -926,7 +923,7 @@ seturiparameters(Client *c, const char *uri, ParamName *params)
 
 	curconfig = uriconfig ? uriconfig : defconfig;
 
-	for (i = 0; (p = params[i]) != ParameterLast; ++i) {
+	for (int i = 0; (p = params[i]) != ParameterLast; ++i) {
 		switch(p) {
 		default: /* FALLTHROUGH */
 			if (
@@ -1109,9 +1106,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 const char*
 getcert(const char *uri)
 {
-	int i;
-
-	for (i = 0; i < LENGTH(certs); ++i) {
+	for (int i = 0; i < LENGTH(certs); ++i) {
 		if (
 			certs[i].regex &&
 			!regexec(&(certs[i].re), uri, 0, NULL, 0)
@@ -1162,12 +1157,10 @@ setcert(Client *c)
 const char*
 getstyle(const char *uri)
 {
-	int i;
-
 	if (style_loc)
 		return style_loc->str;
 
-	for (i = 0; i < LENGTH(styles); ++i) {
+	for (int i = 0; i < LENGTH(styles); ++i) {
 		if (
 			styles[i].regex &&
 			!regexec(&(styles[i].re), uri, 0, NULL, 0)
@@ -1373,16 +1366,17 @@ WebKitWebView*
 newview(Client *c, WebKitWebView *rv)
 {
 	WebKitWebView *v;
-	WebKitSettings *settings;
-	WebKitWebContext *context;
-	WebKitCookieManager *cookiemanager;
-	WebKitUserContentManager *contentmanager;
 
 	/* Webview */
 	if (rv) {
 		v = WEBKIT_WEB_VIEW(webkit_web_view_new_with_related_view(rv));
 	} else {
-		settings = webkit_settings_new_with_settings(
+		WebKitWebContext *context;
+		WebKitCookieManager *cookiemanager =
+			webkit_web_context_get_cookie_manager(context);
+		WebKitUserContentManager *contentmanager =
+			webkit_user_content_manager_new();
+		WebKitSettings *settings = webkit_settings_new_with_settings(
 			"allow-file-access-from-file-urls",
 				curconfig[FileURLsCrossAccess].val.i,
 			"allow-universal-access-from-file-urls",
@@ -1436,8 +1430,6 @@ newview(Client *c, WebKitWebView *rv)
 		}
 		useragent = webkit_settings_get_user_agent(settings);
 
-		contentmanager = webkit_user_content_manager_new();
-
 		if (curconfig[Ephemeral].val.i) {
 			context = webkit_web_context_new_ephemeral();
 		} else {
@@ -1451,8 +1443,6 @@ newview(Client *c, WebKitWebView *rv)
 				)
 			);
 		}
-
-		cookiemanager = webkit_web_context_get_cookie_manager(context);
 
 		/* rendering process model, can be a shared unique one
 		 * or one for each view */
@@ -1668,10 +1658,8 @@ initwebextensions(WebKitWebContext *wc, Client *c)
 GtkWidget*
 createview(WebKitWebView *v, WebKitNavigationAction *a, Client *c)
 {
-	Client *n;
-
 	switch (webkit_navigation_action_get_navigation_type(a)) {
-	case WEBKIT_NAVIGATION_TYPE_OTHER: /* fallthrough */
+	case WEBKIT_NAVIGATION_TYPE_OTHER:
 		/*
 		 * popup windows of type “other” are almost always triggered
 		 * by user gesture, so inverse the logic here
@@ -1679,30 +1667,30 @@ createview(WebKitWebView *v, WebKitNavigationAction *a, Client *c)
 		/* instead of this, compare destination uri to mouse-over uri
 		 * for validating window */
 		if (webkit_navigation_action_is_user_gesture(a))
-			return NULL;
+			break;
+		/* else fallthrough */
+
 	case WEBKIT_NAVIGATION_TYPE_LINK_CLICKED: /* fallthrough */
 	case WEBKIT_NAVIGATION_TYPE_FORM_SUBMITTED: /* fallthrough */
 	case WEBKIT_NAVIGATION_TYPE_BACK_FORWARD: /* fallthrough */
 	case WEBKIT_NAVIGATION_TYPE_RELOAD: /* fallthrough */
 	case WEBKIT_NAVIGATION_TYPE_FORM_RESUBMITTED:
-		n = newclient(c);
-		break;
+		return GTK_WIDGET(newclient(c)->view);
+
 	default:
-		return NULL;
+		break;
 	}
 
-	return GTK_WIDGET(n->view);
+	return NULL;
 }
 
 gboolean
 buttonreleased(GtkWidget *w, GdkEvent *e, Client *c)
 {
-	WebKitHitTestResultContext element;
-	int i;
+	WebKitHitTestResultContext element =
+		webkit_hit_test_result_get_context(c->mousepos);
 
-	element = webkit_hit_test_result_get_context(c->mousepos);
-
-	for (i = 0; i < LENGTH(buttons); ++i) {
+	for (int i = 0; i < LENGTH(buttons); ++i) {
 		if (
 			element & buttons[i].target &&
 			e->button.button == buttons[i].button &&
@@ -1745,7 +1733,6 @@ processx(GdkXEvent *e, GdkEvent *event, gpointer d)
 gboolean
 winevent(GtkWidget *w, GdkEvent *e, Client *c)
 {
-	int i;
 	Key key;
 
 	switch (e->type) {
@@ -1778,10 +1765,12 @@ winevent(GtkWidget *w, GdkEvent *e, Client *c)
 }
 
 void
-showview(WebKitWebView *v, Client *c)
+showview(WebKitWebView *ignored, Client *c)
 {
 	GdkRGBA bgcolor = { 0 };
 	GdkWindow *gwin;
+
+	nullguard(c);
 
 	c->finder = webkit_web_view_get_find_controller(c->view);
 	c->inspector = webkit_web_view_get_inspector(c->view);
@@ -1824,19 +1813,18 @@ showview(WebKitWebView *v, Client *c)
 void
 createwindow(Client *c)
 {
-	char *wmstr;
 	GtkWidget *w;
 
 	if (embed) {
 		w = gtk_plug_new(embed);
 	} else {
-		w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-		wmstr = g_strdup_printf(
+		char *wmstr = g_strdup_printf(
 			"%s[%"PRIu64"]",
 			"boredserf",
 			c->pageid
 		);
+		w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
 		gtk_window_set_role(GTK_WINDOW(w), wmstr);
 		g_free(wmstr);
 
@@ -2161,7 +2149,6 @@ decidenewwindow(WebKitPolicyDecision *d, Client *c)
 void
 decideresource(WebKitPolicyDecision *d, Client *c)
 {
-	int i, isascii = 1;
 	WebKitResponsePolicyDecision *r = WEBKIT_RESPONSE_POLICY_DECISION(d);
 	WebKitURIResponse *res =
 		webkit_response_policy_decision_get_response(r);
@@ -2181,7 +2168,9 @@ decideresource(WebKitPolicyDecision *d, Client *c)
 		!g_str_has_prefix(uri, "blob:") &&
 		strlen(uri) > 0
 	) {
-		for (i = 0; i < strlen(uri); i++) {
+		const int urilen = strlen(uri);
+		int isascii = 1;
+		for (int i = 0; i < urilen; i++) {
 			if (!g_ascii_isprint(uri[i])) {
 				isascii = 0;
 				break;
@@ -2267,8 +2256,6 @@ destroywin(GtkWidget* w, Client *c)
 gboolean
 runkey(Key key, Client *c)
 {
-	int i;
-
 	/* ignore standard modifiers as literal key presses */
 	if (GDK_KEY_Shift_L <= key.keyval && GDK_KEY_Hyper_R >= key.keyval)
 		return FALSE;
@@ -2276,7 +2263,7 @@ runkey(Key key, Client *c)
 		return FALSE;
 	if (curkeytree == NULL)
 		resetkeytree(c);
-	for (i = 0; curkeytree[i].func; ++i) {
+	for (int i = 0; curkeytree[i].func; ++i) {
 		if (
 			key.keyval != curkeytree[i].keyval ||
 			key.mod != curkeytree[i].mod
@@ -2328,7 +2315,6 @@ replacekeytree(Client *c, void *cb)
 	static gulong *ids = NULL;
 	static int idsz = 0;
 	static int idpos = 0;
-	int i;
 
 	if (NULL == ids || idpos >= idsz) {
 		if (defsz > idsz)
@@ -2338,7 +2324,7 @@ replacekeytree(Client *c, void *cb)
 		ids = realloc(ids, idsz * sizeof(gulong));
 		if (!idpos)
 			ids[0] = 0;
-		for (i = idpos + 1; i < idsz; ++i)
+		for (int i = idpos + 1; i < idsz; ++i)
 			ids[i] = 0;
 	}
 
@@ -2372,9 +2358,7 @@ replacekeytree(Client *c, void *cb)
 /*
 gchar*
 parseuri(const gchar *uri) {
-	guint i;
-
-	for (i = 0; i < LENGTH(searchengines); i++) {
+	for (guint i = 0; i < LENGTH(searchengines); i++) {
 		if (
 			searchengines[i].token == NULL ||
 			searchengines[i].uri == NULL ||
@@ -2406,7 +2390,6 @@ void
 i_seturi(Client *c, const Arg *a)
 {
 	char *result_c;
-	GString *result_gs;
 	int len;
 
 	nullguard(c);
@@ -2414,7 +2397,7 @@ i_seturi(Client *c, const Arg *a)
 
 	result_c = cmd(NULL, selector_go);
 	if (NULL != result_c) {
-		result_gs = g_string_new(result_c);
+		GString *result_gs = g_string_new(result_c);
 		setatom(c, AtomGo, result_gs);
 		g_free(result_c);
 		g_string_free(result_gs, TRUE);
@@ -2425,13 +2408,12 @@ void
 i_find(Client *c, const Arg *a)
 {
 	char *result = NULL;
-	GString *result_gs;
 
 	nullguard(c);
 	updatewinid(c);
 
 	if ((result = cmd(NULL, selector_find))) {
-		result_gs = g_string_new(result);
+		GString *result_gs = g_string_new(result);
 		setatom(c, AtomFind, result_gs);
 		freeandnull(result);
 		g_string_free(result_gs, TRUE);
@@ -2628,16 +2610,15 @@ toggleinspector(Client *c, const Arg *a)
 void
 find(Client *c, const Arg *a)
 {
-	const char *s, *f;
-
 	if (a && a->i) {
 		if (a->i > 0)
 			webkit_find_controller_search_next(c->finder);
 		else
 			webkit_find_controller_search_previous(c->finder);
 	} else {
-		s = getatom(c, AtomFind);
-		f = webkit_find_controller_get_search_text(c->finder);
+		const char *s = getatom(c, AtomFind);
+		const char *f =
+			webkit_find_controller_get_search_text(c->finder);
 
 		if (g_strcmp0(f, s) == 0) { /* reset search */
 			webkit_find_controller_search(
@@ -2669,18 +2650,14 @@ clicknavigate(Client *c, const Arg *a, WebKitHitTestResult *h)
 void
 clicknewwindow(Client *c, const Arg *a, WebKitHitTestResult *h)
 {
-	Arg arg;
-
-	arg.v = webkit_hit_test_result_get_link_uri(h);
+	Arg arg = { .v = webkit_hit_test_result_get_link_uri(h) };
 	newwindow(c, &arg, a->i);
 }
 
 void
 clickexternplayer(Client *c, const Arg *a, WebKitHitTestResult *h)
 {
-	Arg arg;
-
-	arg = (Arg)VIDEOPLAY(webkit_hit_test_result_get_media_uri(h));
+	Arg arg = (Arg)VIDEOPLAY(webkit_hit_test_result_get_media_uri(h));
 	spawn(c, &arg);
 }
 

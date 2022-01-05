@@ -21,7 +21,6 @@ mark_read(BSMark **mark_out, int *msz_out)
 	int fsz = 0;
 	int fpos = 0;
 	GArray *lineend = NULL;
-	int ch = 0;
 	char *line = NULL;
 	int lnum = 0;
 	int lstart = 0;
@@ -41,7 +40,7 @@ mark_read(BSMark **mark_out, int *msz_out)
 	rewind(file);
 	lineend = g_array_new(FALSE, FALSE, sizeof(int));
 	while (fpos < fsz) {
-		ch = fgetc(file);
+		int ch = fgetc(file);
 		if ('\n' == ch || '\r' == ch || 0 == ch || EOF == ch)
 			g_array_append_vals(lineend, &fpos, 1);
 		++fpos;
@@ -156,11 +155,7 @@ mark_test(const char *uri)
 {
 	static BSMark *mark = NULL;
 	static int msz = 0;
-	char maybetoken[linemax];
 	char *result = NULL;
-	int ressz;
-	int i;
-	int c;
 
 	if (NULL == marks_loc || NULL == uri)
 		return NULL;
@@ -169,11 +164,11 @@ mark_test(const char *uri)
 		mark_read(&mark, &msz);
 
 	/* search through marks for matches */
-	for (i = 0; i < msz; ++i) {
+	for (int i = 0; i < msz; ++i) {
+		char maybetoken[linemax];
 		if (NULL == mark[i].token)
 			continue;
-		for (c = 0; uri[c]; ++c) {
-			maybetoken[c] = uri[c];
+		for (int c = 0; c < linemax && (maybetoken[c] = uri[c]); ++c) {
 			if (
 				' ' == maybetoken[c] ||
 				'\t' == maybetoken[c]
@@ -184,13 +179,12 @@ mark_test(const char *uri)
 			if (c == linemax - 1)
 				break;
 		}
-		maybetoken[c] = 0;
 		if (
 			strlen(mark[i].token) == strlen(maybetoken) &&
 			0 == strcmp(mark[i].token, maybetoken)
 		) {
 			if (mark[i].isquery) {
-				ressz = strlen(uri) + strlen(mark[i].uri);
+				int ressz = strlen(uri) + strlen(mark[i].uri);
 				result = g_malloc(ressz);
 				snprintf(
 					result,

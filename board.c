@@ -135,11 +135,9 @@ board_status(Client *c, GString *input, GString *match)
 	const char active[flaglen]   = "FGML";
 	const char inactive[flaglen] = "fgml";
 	GString *status = g_string_new(NULL);
-	const char *existing;
-	int i;
 
 	/* build status string */
-	for (i = 0; i < flaglen; ++i) {
+	for (int i = 0; i < flaglen; ++i) {
 		if (c->board_flags & 1 << i)
 			g_string_append_c(status, active[i]);
 		else
@@ -151,7 +149,8 @@ board_status(Client *c, GString *input, GString *match)
 	if (input && input->len) {
 		g_string_append(status, input->str);
 	} else if (c->board_flags & 1 << boardtype_find) {
-		existing = webkit_find_controller_get_search_text(c->finder);
+		const char *existing =
+			webkit_find_controller_get_search_text(c->finder);
 		if (existing)
 			g_string_append(status, existing);
 	}

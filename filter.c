@@ -49,13 +49,8 @@ filter_parse(char *text)
 {
 	GScanner *scan;
 	FilterRule *rule;
-	char *field1;
-	char *field2;
-	char *field3;
-	char *field4;
 	char *line;
 	char *lineend;
-	char *comment;
 	char *allowed =
 		"abcdefghijklmnopqrstuvwxyz"
 		"~1!2@3#4$5%6^7&8*9(0)-_=+[{]},<.>;:/\\|?"
@@ -77,6 +72,8 @@ filter_parse(char *text)
 
 	lineend = line = text;
 	while (0 != *line) {
+		char *comment;
+		char *field1, *field2, *field3, *field4;
 		field1 = field2 = field3 = field4 = NULL;
 		while (0 != *lineend && '\n' != *lineend)
 			++lineend;
@@ -165,14 +162,9 @@ filterparse_next_rule:
 void
 filter_write(void)
 {
-	enum { linemax = 2048 };
 	FilterRule *rule = filterrules;
 	FILE *output;
 	GString *tempfile;
-	char *ptr;
-	char line[linemax];
-	int hidep1;
-	int hidep3;
 
 	if (NULL == filterrules)
 		return;
@@ -185,8 +177,10 @@ filter_write(void)
 	nullguard(output);
 
 	while (NULL != rule) {
+		int hidep1;
+		int hidep3;
 		/* comments */
-		ptr = rule->comment;
+		char *ptr = rule->comment;
 		if (NULL != ptr) {
 			if (0 != rule->comment[0])
 				fwrite(ptr, 1, strlen(ptr), output);

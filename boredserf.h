@@ -182,7 +182,7 @@ GdkFilterReturn processx(GdkXEvent *xevent, GdkEvent *event,
                          gpointer d);
 gboolean winevent(GtkWidget *w, GdkEvent *e, Client *c);
 gboolean readsock(GIOChannel *s, GIOCondition ioc, gpointer unused);
-void showview(WebKitWebView *v, Client *c);
+void showview(WebKitWebView *ignored, Client *c);
 void createwindow(Client *c);
 gboolean loadfailedtls(WebKitWebView *v, gchar *uri,
                        GTlsCertificate *cert,
