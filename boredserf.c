@@ -146,21 +146,16 @@ setup(void)
 	curconfig = defconfig;
 
 	/* dirs and files */
+	if (curconfig[Ephemeral].val.i)
+		cachedir = NULL;
 	cookie_loc     = buildfile(cookiefile);
 	script_loc     = buildfile(scriptfile);
-	if (visitedfile)
-		visited_loc    = buildfile(visitedfile);
-	if (marksfile)
-		marks_loc      = buildfile(marksfile);
-	if (filterrulefile && filterdir) {
-		filterrule_loc = buildfile(filterrulefile);
-		filterdir_loc  = buildpath(filterdir);
-	}
+	visited_loc    = buildfile(visitedfile);
+	marks_loc      = buildfile(marksfile);
+	filterrule_loc = buildfile(filterrulefile);
+	filterdir_loc  = buildpath(filterdir);
 	certdir_loc    = buildpath(certdir);
-	if (curconfig[Ephemeral].val.i)
-		cachedir_loc = NULL;
-	else
-		cachedir_loc = buildpath(cachedir);
+	cachedir_loc   = buildpath(cachedir);
 
 	gdkkb = gdk_seat_get_keyboard(gdk_display_get_default_seat(gdpy));
 
@@ -180,7 +175,7 @@ setup(void)
 		g_io_add_watch(gchanin, G_IO_IN, readsock, NULL);
 	}
 
-	for (int i = 0; i < LENGTH(certs); ++i) {
+	for (int i = 0; certdir_loc && i < LENGTH(certs); ++i) {
 		if (!regcomp(&(certs[i].re), certs[i].regex, REG_EXTENDED)) {
 			certs[i].file = g_strconcat(
 				certdir_loc->str,
@@ -201,7 +196,7 @@ setup(void)
 		GString *styledir_loc = buildpath(styledir);
 		for (int i = 0; i < LENGTH(styles); ++i) {
 			if (!styledir_loc)
-				break;
+				styles[i].file = NULL;
 			if (!styles[i].file)
 				continue;
 			if (
@@ -225,7 +220,8 @@ setup(void)
 				styles[i].regex = NULL;
 			}
 		}
-		g_string_free(styledir_loc, TRUE);
+		if (styledir_loc)
+			g_string_free(styledir_loc, TRUE);
 	} else {
 		style_loc = buildfile(stylefile);
 	}
@@ -274,7 +270,10 @@ buildfile(const char *input)
 	char *dirname_c;
 	char *basename_c;
 	char *path_c;
+	struct stat st;
 
+	if (NULL == input)
+		return NULL;
 	dirname_c  = g_path_get_dirname(input);
 	basename_c = g_path_get_basename(input);
 
@@ -284,6 +283,12 @@ buildfile(const char *input)
 	path_c = g_build_filename(dirpath_gs->str, basename_c, NULL);
 	g_string_free(dirpath_gs, TRUE);
 	g_free(basename_c);
+
+	/* test if file exists, is a regular file, and  */
+	if (stat(path_c, &st))
+		return NULL;
+	if (!S_ISREG(st.st_mode))
+		return NULL;
 
 	if (!(file = fopen(path_c, "a"))) {
 		g_printerr("For %s: ", path_c);
@@ -302,17 +307,20 @@ buildpath(const char *input)
 {
 	GString *path;
 	char *rp;
+	struct stat st;
 
-	nullguard(input, NULL);
+	if (NULL == input)
+		return NULL;
+
 	path = g_string_new(input);
 	if (g_str_has_prefix(input, "~/"))
 		g_string_replace(path, "~", g_get_home_dir(), 1);
 
-	/* create directory */
-	if (0 > g_mkdir_with_parents(path->str, 0700)) {
-		g_printerr("For %s: could not access path.\n", input);
-		g_printerr("Disabling associated functionality.\n");
-	}
+	/* do not continue unless directory already exists */
+	if (stat(path->str, &st))
+		return NULL;
+	if (!S_ISDIR(st.st_mode))
+		return NULL;
 
 	rp = realpath(path->str, NULL);
 	nullguard(rp, path);
@@ -439,7 +447,7 @@ updateenv(Client *c)
 	//getpagestyles(c);
 	getpageimages(c);
 	setenv("BS_URI", uri->str, 1);
-	if (NULL != visited_loc->str && visited_loc->len)
+	if (visited_loc && visited_loc->len)
 		setenv("BS_VISITED", visited_loc->str, 1);
 	filter_stripper(c, getenv("BS_URI"));
 	getpagehead_stripped(c);
@@ -1109,7 +1117,7 @@ setparameter(Client *c, int refresh, ParamName p, const Arg *a)
 const char*
 getcert(const char *uri)
 {
-	for (int i = 0; i < LENGTH(certs); ++i) {
+	for (int i = 0; certdir_loc, i < LENGTH(certs); ++i) {
 		if (
 			certs[i].regex &&
 			!regexec(&(certs[i].re), uri, 0, NULL, 0)
@@ -1164,6 +1172,8 @@ getstyle(const char *uri)
 		return style_loc->str;
 
 	for (int i = 0; i < LENGTH(styles); ++i) {
+		if (!styles[i].file)
+			continue;
 		if (
 			styles[i].regex &&
 			styles[i].file &&
@@ -1209,8 +1219,13 @@ runscript(Client *c)
 	gchar *script;
 	gsize l;
 
-	if (g_file_get_contents(script_loc->str, &script, &l, NULL) && l)
+	if (
+		script_loc &&
+		g_file_get_contents(script_loc->str, &script, &l, NULL) &&
+		l
+	) {
 		evalscript(c, "%s", script);
+	}
 	g_free(script);
 }
 
@@ -1499,7 +1514,7 @@ newview(Client *c, WebKitWebView *rv)
 
 		/* Currently only works with text file to be compatible with
 		 * curl */
-		if (!curconfig[Ephemeral].val.i) {
+		if (cookie_loc && !curconfig[Ephemeral].val.i) {
 			webkit_cookie_manager_set_persistent_storage(
 				cookiemanager,
 				cookie_loc->str,

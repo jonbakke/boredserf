@@ -28,6 +28,8 @@ filter_read(void)
 
 	fseek(file, 0, SEEK_END);
 	buflen = ftell(file);
+	if (!buflen)
+		return;
 	buffer = g_malloc(buflen + 1);
 	buffer[buflen] = 0;
 	rewind(file);

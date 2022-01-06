@@ -28,6 +28,9 @@ mark_read(BSMark **mark_out, int *msz_out)
 	int lsz = 0;
 	int lpos = 0;
 
+	if (NULL == marks_loc)
+		return;
+
 	/* open file */
 	file = fopen(marks_loc->str, "r");
 	nullguard(file);

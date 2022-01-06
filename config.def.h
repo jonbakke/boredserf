@@ -138,12 +138,13 @@ WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
 
 /* styles */
 /*
- * The iteration will stop at the first match, beginning at the beginning of
- * the list.
+ * List of regular expression, CSS filename pairs. The regular expression will
+ * be tested against the page's URI. The file needs to be located in the
+ * `styledir' folder defined above. Only the first match will be used; that CSS
+ * file will be applied to the current page.
  */
 SiteSpecific styles[] = {
-	/* regexp               file in $styledir */
-	{ ".*",                 NULL },
+	{ ".*",                 "theme.css" },
 };
 
 /* certificates */
