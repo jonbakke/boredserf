@@ -316,9 +316,13 @@ buildpath(const char *input)
 	if (g_str_has_prefix(input, "~/"))
 		g_string_replace(path, "~", g_get_home_dir(), 1);
 
-	/* do not continue unless directory already exists */
-	if (stat(path->str, &st))
-		return NULL;
+	/* if directory does not exist, create it;
+	 * WebKit requires some folders to exist */
+	if (stat(path->str, &st)) {
+		mkdir(path->str, 0700);
+		if (stat(path->str, &st))
+			err("Could not create folder.", NULL);
+	}
 	if (!S_ISDIR(st.st_mode))
 		return NULL;
 
