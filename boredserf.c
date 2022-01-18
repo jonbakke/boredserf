@@ -1223,6 +1223,9 @@ runscript(Client *c)
 	gchar *script;
 	gsize l;
 
+	if (!script_loc)
+		return;
+
 	if (
 		script_loc &&
 		g_file_get_contents(script_loc->str, &script, &l, NULL) &&
